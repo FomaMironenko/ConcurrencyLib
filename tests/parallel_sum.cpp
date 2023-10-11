@@ -9,8 +9,8 @@
 #include <thread>
 #include <future>
 
-#include "table.h"
-#include "prg.h"
+#include "table.hpp"
+#include "rand_gen.hpp"
 
 
 template <class T>
@@ -103,17 +103,15 @@ void gatherPerformanceStats(Func sumCalc, size_t array_size, const std::string& 
 int main() {
     table.addHeader();
     table.dumpAndFlush();
-    constexpr size_t array_size = 1'000'000'000;
+    constexpr size_t array_size = 100'000'000;
     gatherPerformanceStats(computeSumWithRawData<int>, array_size, "Vecotor sum");
     table.dumpAndFlush();
-    // gatherPerformanceStats(computeSum<int>, array_size, "Raw array sum");
-    // table.dumpAndFlush();
-    // gatherPerformanceStats(parallelComputeSum<2, int>, array_size, "2 workers");
-    // table.dumpAndFlush();
+    gatherPerformanceStats(computeSum<int>, array_size, "Raw array sum");
+    table.dumpAndFlush();
+    gatherPerformanceStats(parallelComputeSum<2, int>, array_size, "2 workers");
+    table.dumpAndFlush();
     gatherPerformanceStats(parallelComputeSum<4, int>, array_size, "4 workers");
     table.dumpAndFlush();
-    // gatherPerformanceStats(parallelComputeSum<8, int>, array_size, "8 workers");
-    // table.dumpAndFlush();
-    gatherPerformanceStats(parallelComputeSum<64, int>, array_size, "64 workers");
+    gatherPerformanceStats(parallelComputeSum<8, int>, array_size, "8 workers");
     table.dumpAndFlush();
 }
