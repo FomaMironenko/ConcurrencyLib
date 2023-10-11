@@ -9,8 +9,8 @@
 #include <thread>
 #include <future>
 
-#include "table.hpp"
-#include "rand_gen.hpp"
+#include "utils/table.hpp"
+#include "utils/rand_gen.hpp"
 
 
 template <class T>

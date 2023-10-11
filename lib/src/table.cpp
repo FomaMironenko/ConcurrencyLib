@@ -1,4 +1,4 @@
-#include "table.hpp"
+#include "utils/table.hpp"
 
 void StatsTable::addHeader() {
     addSeparator();

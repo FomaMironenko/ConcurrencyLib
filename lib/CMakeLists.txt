@@ -2,8 +2,9 @@ cmake_minimum_required(VERSION 3.7)
 
 project (ConcurrencyLib)
 
+include_directories(include private)
+
 add_library (
     ConcurrencyLib
-    rand_gen.hpp
-    table.hpp table.cpp
+    "src/table.cpp"
 )
