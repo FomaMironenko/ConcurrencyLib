@@ -1,0 +1,5 @@
+# IDE
+.vscode
+
+# build cache
+*dSYM
