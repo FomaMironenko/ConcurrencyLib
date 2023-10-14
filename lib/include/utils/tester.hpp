@@ -14,7 +14,7 @@ if ( !(bool_val) ) { \
 
 #define ASSERT_EQ(lhs, rhs) \
 if ( (lhs) != (rhs) ) { \
-    LOG_ERR << "Assertion failed: \"" << #lhs << " == " << #rhs << "\"; with expansion " << lhs << " != " << rhs; \
+    LOG_ERR << "Assertion failed: \"" << #lhs << " == " << #rhs << "\"; with expansion " << lhs << " == " << rhs; \
     return false; \
 }
 

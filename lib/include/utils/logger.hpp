@@ -27,6 +27,16 @@ public:
         return *this;
     }
 
+    template <class T>
+    SimpleLogger& operator<<(const std::vector<T>& vec) {
+        ss_ << "[";
+        for (const T& val : vec) {
+            ss_ << val << ", ";
+        }
+        ss_ << "]";
+        return *this;
+    }
+
 private:
     std::stringstream ss_;
 };
