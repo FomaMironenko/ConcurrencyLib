@@ -4,6 +4,7 @@
 #include <memory>
 #include <utility>
 #include <stdexcept>
+#include <functional>
 
 #include "../private/shared_state.hpp"
 
@@ -42,6 +43,10 @@ public:
     StateConsumer& operator=(StateConsumer&&) = delete;
 
     T get();
+    void subscribe(
+        std::function<void(T)> val_callback,
+        std::function<void(std::exception_ptr)> err_callback = nullptr
+    );
 
 private:
     std::shared_ptr<details::SharedState<T>> state_;
@@ -79,8 +84,12 @@ void StateProducer<T>::setValue(T value) {
     std::lock_guard guard(state->mtx_);
     assert(!state->produced_);
     state->value_ = std::move(value);
-    state->produced_ = true;
-    state->cv_.notify_all();
+    if (state->subscribed_) {
+        state->resolveSubscription();
+    } else {
+        state->produced_ = true;
+        state->cv_.notify_one();  // there are no more than one waiters
+    }
 }
 
 template <class T>
@@ -93,8 +102,12 @@ void StateProducer<T>::setError(std::exception_ptr err) {
     std::lock_guard guard(state->mtx_);
     assert(!state->produced_);
     state->error_ = std::move(err);
-    state->produced_ = true;
-    state->cv_.notify_all();
+    if (state->subscribed_) {
+        state->resolveSubscription();
+    } else {
+        state->produced_ = true;
+        state->cv_.notify_one();  // there are no more than one waiters
+    }
 }
 
 template <class T>
@@ -108,11 +121,33 @@ T StateConsumer<T>::get() {
     while (!state->produced_) {
         state->cv_.wait(guard);
     }
-    state->consumed_ = true;
     if (state->value_.has_value()) {
         return std::move(*state->value_);
     } else if (state->error_) {
         std::rethrow_exception(state->error_);
     }
     assert(false);
+}
+
+template <class T>
+void StateConsumer<T>::subscribe(
+        std::function<void(T)> val_callback,
+        std::function<void(std::exception_ptr)> err_callback
+) {
+    auto state = std::move(state_);
+    if (!state) {
+        throw std::runtime_error("Trying to subscribe to state twice");
+    }
+    // Guard will be destructed before state. Thus no use after free is available.
+    std::unique_lock guard(state->mtx_);
+    state->val_callback_ = std::move(val_callback);
+    state->err_callback_ = std::move(err_callback);
+    if (state->produced_) {
+        // Scenario 1: state has already been produced and the callback will be executed in current thread
+        // this is the only owning thread, so guard causes no contention
+        state->resolveSubscription();
+    } else {
+        // Scenario 2: state has not yet been produced and the callback will be executed by producer
+        state->subscribed_ = true;
+    }
 }
