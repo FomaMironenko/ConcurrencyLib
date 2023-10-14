@@ -12,9 +12,9 @@
 
 // Forward declare
 template <class T>
-class StateProducer;
+class Promise;
 template <class T>
-class StateConsumer;
+class Future;
 template <class T>
 struct Contract;
 
@@ -47,8 +47,8 @@ private:
         }
     }
 
-friend class StateProducer<T>;
-friend class StateConsumer<T>;
+friend class Promise<T>;
+friend class Future<T>;
 };
 
 }  // namespace details

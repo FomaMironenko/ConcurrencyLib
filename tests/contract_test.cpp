@@ -11,14 +11,14 @@
 using namespace std::chrono_literals;
 
 bool waitBlocks() {
-    auto [producer, consumer] = contract<int>();
+    auto [promise, future] = contract<int>();
 
     Timer timer;
-    std::thread prod_thread([producer = std::move(producer)] () mutable {
+    std::thread prod_thread([promise = std::move(promise)] () mutable {
         std::this_thread::sleep_for(100ms);
-        producer.setValue(42);
+        promise.setValue(42);
     });
-    int val = consumer.get();
+    int val = future.get();
     double ms = timer.elapsedMilliseconds();
     prod_thread.join();
 
@@ -30,18 +30,18 @@ bool waitBlocks() {
 
 bool subscription1() {
     int dst = 0;
-    auto [producer, consumer] = contract<int>();
-    consumer.subscribe([&dst] (int result) { dst = result; });
-    producer.setValue(42);
+    auto [promise, future] = contract<int>();
+    future.subscribe([&dst] (int result) { dst = result; });
+    promise.setValue(42);
     ASSERT_EQ(dst, 42);
     return true;
 }
 
 bool subscription2() {
     int dst = 0;
-    auto [producer, consumer] = contract<int>();
-    producer.setValue(42);
-    consumer.subscribe([&dst] (int result) { dst = result; });
+    auto [promise, future] = contract<int>();
+    promise.setValue(42);
+    future.subscribe([&dst] (int result) { dst = result; });
     ASSERT_EQ(dst, 42);
     return true;
 }

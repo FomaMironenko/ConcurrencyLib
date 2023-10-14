@@ -10,15 +10,15 @@
 
 
 template <class T>
-class StateProducer {
+class Promise {
 private:
-    StateProducer(std::shared_ptr<details::SharedState<T>> state) : state_(std::move(state)) {    }
+    Promise(std::shared_ptr<details::SharedState<T>> state) : state_(std::move(state)) {    }
 
 public:
-    StateProducer(const StateProducer&) = delete;
-    StateProducer(StateProducer&&) = default;
-    StateProducer& operator=(const StateProducer&) = delete;
-    StateProducer& operator=(StateProducer&&) = delete;
+    Promise(const Promise&) = delete;
+    Promise(Promise&&) = default;
+    Promise& operator=(const Promise&) = delete;
+    Promise& operator=(Promise&&) = delete;
 
     void setValue(T value);
     void setError(std::exception_ptr err);
@@ -32,15 +32,15 @@ friend Contract<Y> contract();
 
 
 template <class T>
-class StateConsumer {
+class Future {
 private:
-    StateConsumer(std::shared_ptr<details::SharedState<T>> state) : state_(std::move(state)) {    }
+    Future(std::shared_ptr<details::SharedState<T>> state) : state_(std::move(state)) {    }
 
 public:
-    StateConsumer(const StateConsumer&) = delete;
-    StateConsumer(StateConsumer&&) = default;
-    StateConsumer& operator=(const StateConsumer&) = delete;
-    StateConsumer& operator=(StateConsumer&&) = delete;
+    Future(const Future&) = delete;
+    Future(Future&&) = default;
+    Future& operator=(const Future&) = delete;
+    Future& operator=(Future&&) = delete;
 
     T get();
     void subscribe(
@@ -58,14 +58,14 @@ friend Contract<Y> contract();
 
 template <class T>
 struct Contract {
-    StateProducer<T> producer;
-    StateConsumer<T> consumer;
+    Promise<T> producer;
+    Future<T> consumer;
 };
 
 template <class T>
 Contract<T> contract() {
     auto state = std::make_shared<details::SharedState<T>>();
-    return {StateProducer<T>{state}, StateConsumer<T>{state}};
+    return {Promise<T>{state}, Future<T>{state}};
 }
 
 
@@ -75,7 +75,7 @@ Contract<T> contract() {
 // ======================================================== //
 
 template <class T>
-void StateProducer<T>::setValue(T value) {
+void Promise<T>::setValue(T value) {
     auto state = std::move(state_);
     if (!state) {
         throw std::runtime_error("Trying to set value twice");
@@ -93,7 +93,7 @@ void StateProducer<T>::setValue(T value) {
 }
 
 template <class T>
-void StateProducer<T>::setError(std::exception_ptr err) {
+void Promise<T>::setError(std::exception_ptr err) {
     auto state = std::move(state_);
     if (!state) {
         throw std::runtime_error("Trying to set value twice");
@@ -111,7 +111,7 @@ void StateProducer<T>::setError(std::exception_ptr err) {
 }
 
 template <class T>
-T StateConsumer<T>::get() {
+T Future<T>::get() {
     auto state = std::move(state_);
     if (!state) {
         throw std::runtime_error("Trying to get state twice");
@@ -130,7 +130,7 @@ T StateConsumer<T>::get() {
 }
 
 template <class T>
-void StateConsumer<T>::subscribe(
+void Future<T>::subscribe(
         std::function<void(T)> val_callback,
         std::function<void(std::exception_ptr)> err_callback
 ) {
