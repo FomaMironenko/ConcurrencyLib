@@ -11,6 +11,7 @@
 
 #include "utils/table.hpp"
 #include "utils/rand_gen.hpp"
+#include "utils/timer.hpp"
 
 
 template <class T>
@@ -79,16 +80,16 @@ void gatherPerformanceStats(Func sumCalc, size_t array_size, const std::string& 
     constexpr size_t num_iters = 2;
     std::vector<DataType> data_vec(array_size);
 
+    Timer timer;
     for (size_t iter = 0; iter < num_iters; ++iter) {
         // Generate
         for (size_t idx = 0; idx < array_size; ++idx) {
             data_vec[idx] = PRG.next();
         }
         // Run
-        auto start = std::chrono::high_resolution_clock::now();
+        timer.start();
         sumCalc(data_vec);
-        auto end = std::chrono::high_resolution_clock::now();
-        double ms = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count() / 1'000'000.0;
+        double ms = timer.elapsedMilliseconds();
         // Process
         sum_time += ms;
         max_time = std::max<double>(max_time, ms);
