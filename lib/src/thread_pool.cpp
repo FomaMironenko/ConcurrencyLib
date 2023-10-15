@@ -49,3 +49,9 @@ void ThreadPool::stop() {
     workers_.clear();
     stopped_ = false;
 }
+
+void ThreadPool::enqueueTask(ThreadPoolTask task) {
+    std::lock_guard guard(mtx_);
+    tasks_.push(std::move(task));
+    queue_cv_.notify_one();
+}

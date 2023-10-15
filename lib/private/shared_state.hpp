@@ -51,4 +51,20 @@ friend class Promise<T>;
 friend class Future<T>;
 };
 
+template <class T>
+struct PromiseBox {
+    PromiseBox(Promise<T> promise) : promise_(std::move(promise)) {  }
+    Promise<T> get() {
+        if (!promise_.has_value()) {
+            LOG_ERR << "Attempting to get from PromiseBox twice";
+            throw std::runtime_error("Double access to PromiseBox");
+        }
+        Promise<T> promise = std::move(*promise_);
+        promise_ = std::nullopt;
+        return promise;
+    }
+private:
+    std::optional<Promise<T>> promise_;
+};
+
 }  // namespace details
