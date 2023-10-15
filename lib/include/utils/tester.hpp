@@ -13,9 +13,13 @@ if ( !(bool_val) ) { \
 
 
 #define ASSERT_EQ(lhs, rhs) \
-if ( (lhs) != (rhs) ) { \
-    LOG_ERR << "Assertion failed: \"" << #lhs << " == " << #rhs << "\"; with expansion " << lhs << " == " << rhs; \
-    return false; \
+{ \
+    auto tmp_lhs = lhs; \
+    auto tmp_rhs = rhs; \
+    if ( (tmp_lhs) != (tmp_rhs) ) { \
+        LOG_ERR << "Assertion failed: \"" << #lhs << " == " << #rhs << "\"; with expansion " << tmp_lhs << " == " << tmp_rhs; \
+        return false; \
+    } \
 }
 
 

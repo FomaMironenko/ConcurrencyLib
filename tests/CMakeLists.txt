@@ -17,3 +17,11 @@ target_link_libraries (
     ContractTest
     ConcurrencyLib
 )
+
+add_executable(ThreadPoolTest
+    thread_pool_test.cpp
+)
+target_link_libraries (
+    ThreadPoolTest
+    ConcurrencyLib
+)
