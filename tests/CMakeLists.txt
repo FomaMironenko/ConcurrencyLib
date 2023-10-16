@@ -25,3 +25,11 @@ target_link_libraries (
     ThreadPoolTest
     ConcurrencyLib
 )
+
+add_executable(LinearEquationsTest
+    linear_equations_test.cpp
+)
+target_link_libraries (
+    LinearEquationsTest
+    ConcurrencyLib
+)
