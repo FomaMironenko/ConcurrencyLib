@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cmath>
 #include <memory>
 #include <vector>
 #include <chrono>
@@ -9,6 +10,7 @@
 #include "utils/tester.hpp"
 
 #include "thread_pool.hpp"
+#include "sweet_async.hpp"
 
 using namespace std::chrono_literals;
 
@@ -78,10 +80,37 @@ bool subscription_error() {
     return true;
 }
 
+bool simple_async_await() {
+    ThreadPool pool(2);
+    Timer timer;
+    auto fst_fut = pool
+        | std::bind(std::pow<int>, 2, 10)
+        | [](int res) {
+            std::this_thread::sleep_for(100ms);
+            return res / 2;
+        };
+    int snd_val = pool
+        | std::bind(std::pow<double>, 10, 0.5)
+        | std::ceil<double>
+        | [](double val) {
+            std::this_thread::sleep_for(100ms);
+            return static_cast<int>(val);
+        }
+        | [](int val) { return val + 1; }
+        | await;
+    int fst_val = std::move(fst_fut) | await;
+    double elapsedMs = timer.elapsedMilliseconds();
+    ASSERT_EQ(fst_val, std::pow<int>(2, 10) / 2);
+    ASSERT_EQ(snd_val, static_cast<int>(std::ceil(std::pow<double>(10, 0.5))) + 1);
+    ASSERT(elapsedMs < 100.);
+    ASSERT(elapsedMs > 120.);
+    return true;
+}
 
 int main() {
     TEST(just_works, "Just works");
     TEST(subscription_just_works, "Subscription just works");
     TEST(subscription_error, "Error in subscription");
+    TEST(simple_async_await, "Simple async await");
     return EXIT_SUCCESS;
 }
