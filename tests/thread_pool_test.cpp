@@ -1,8 +1,11 @@
 #include <iostream>
 #include <memory>
-#include <vector>
 #include <chrono>
 #include <thread>
+#include <cmath>
+
+#include <unordered_map>
+#include <vector>
 
 #include "utils/logger.hpp"
 #include "utils/timer.hpp"
@@ -78,10 +81,93 @@ bool subscription_error() {
     return true;
 }
 
+bool map_reduce() {
+    ThreadPool pool(4);
+    std::vector<AsyncResult<uint32_t>> mapped;
+    uint32_t expected = 0;  // unsigned integer overflow is not a UB
+    constexpr uint32_t num_iters = 10'000;
+    for (uint32_t iter = 0; iter < num_iters; ++iter) {
+        auto async_res = pool.submit<uint32_t>(
+            std::pow<uint32_t>,
+            iter, 2
+        ).then<uint32_t>(
+            [](uint32_t val) { return val * val * val; }
+        );
+        mapped.push_back(std::move(async_res));
+        int32_t cube = iter * iter * iter;  // do not use std::pow to allow overflows
+        expected += cube * cube;
+    }
+    uint32_t reduced = 0;
+    for (auto & fut : mapped) {
+        reduced += fut.get();
+    }
+    ASSERT_EQ(reduced, expected);
+    return true;
+}
+
+template <size_t num_workers>
+bool test_starvation() {
+    ThreadPool pool(num_workers);
+    std::unordered_map<std::thread::id, size_t> worker_cnt;
+    std::mutex mtx;
+    constexpr size_t num_iters = 10'000;
+
+    std::vector<AsyncResult<void>> task_handles;
+    for (size_t iter = 0; iter < num_iters; ++iter) {
+        auto result = pool.submit<void>(
+            [&worker_cnt, &mtx]() mutable {
+                std::lock_guard guard(mtx);
+                ++worker_cnt[std::this_thread::get_id()];
+            }
+        );
+        task_handles.push_back(std::move(result));
+    }
+    for (auto & handle : task_handles) {
+        handle.get();
+    }
+    ASSERT_EQ(worker_cnt.size(), num_workers);
+    for (const auto & [id, cnt] : worker_cnt) {
+        LOG_INFO << cnt << " / " << num_iters;
+        ASSERT(cnt >= (num_iters / num_workers) / 3);
+    }
+
+    return true;
+}
+
+template <size_t num_workers>
+bool test_then_starvation() {
+    ThreadPool pool(num_workers);
+    std::unordered_map<std::thread::id, size_t> worker_cnt;
+    constexpr size_t num_iters = 100'000;
+
+    AsyncResult<size_t> fut = pool.submit<size_t>([]() { return 0; });
+    for (size_t iter = 0; iter < num_iters; ++iter) {
+        fut = fut.then<size_t>([&worker_cnt](size_t val) mutable {
+            // Synchronized via continuation
+            ++worker_cnt[std::this_thread::get_id()];
+            return val + 1;
+        });
+    }
+
+    ASSERT_EQ(fut.get(), num_iters);
+    ASSERT_EQ(worker_cnt.size(), num_workers);
+    for (const auto & [id, cnt] : worker_cnt) {
+        LOG_INFO << cnt << " / " << num_iters;
+        ASSERT(cnt >= (num_iters / num_workers) / 3);
+    }
+
+    return true;
+}
+
 
 int main() {
     TEST(just_works, "Just works");
     TEST(subscription_just_works, "Subscription just works");
     TEST(subscription_error, "Error in subscription");
+    TEST(map_reduce, "Map reduce");
+    TEST(test_starvation<2>, "Starvation test with 2 workers");
+    TEST(test_starvation<5>, "Starvation test with 6 workers");
+    TEST(test_then_starvation<2>, "Continuation starvation test with 2 workers");
+    TEST(test_then_starvation<5>, "Continuation starvation test with 6 workers");
     return EXIT_SUCCESS;
 }

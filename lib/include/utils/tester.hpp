@@ -25,7 +25,7 @@ if ( !(bool_val) ) { \
 
 #define TEST(bool_func, test_name) \
 if (!bool_func()) { \
-    std::cout << "!! ERR !! " << test_name << "\n"; \
+    LOG_ERR << "!! ERR !! " << test_name << "\n"; \
 } else { \
-    std::cout << "== OK === " << test_name << "\n"; \
+    LOG_INFO << "== OK === " << test_name << "\n"; \
 }

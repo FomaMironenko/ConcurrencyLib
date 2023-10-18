@@ -1,5 +1,6 @@
 #pragma once
 
+#include <type_traits>
 #include <utility>
 #include <memory>
 #include <vector>
@@ -94,7 +95,11 @@ friend class AsyncResult;
 
 template <class Ret, class Fun, class ...Args>
 AsyncResult<Ret> ThreadPool::submit(Fun func, Args &&...args) {
-    auto [promise, future] = contract<Ret>();
+    using ContractType = typename std::conditional_t<
+        std::is_same_v<Ret, void>,
+        Void, Ret
+    >;
+    auto [promise, future] = contract<ContractType>();
     std::function<Ret()> task = std::bind(std::forward<Fun>(func), std::forward<Args>(args)...);
     ThreadPoolTask pool_task = std::make_unique<details::Task<Ret>>(std::move(task), std::move(promise));
     enqueueTask(std::move(pool_task));

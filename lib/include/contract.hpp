@@ -40,7 +40,7 @@ public:
     Future(const Future&) = delete;
     Future(Future&&) = default;
     Future& operator=(const Future&) = delete;
-    Future& operator=(Future&&) = delete;
+    Future& operator=(Future&&) = default;
 
     T get();
     void subscribe(
