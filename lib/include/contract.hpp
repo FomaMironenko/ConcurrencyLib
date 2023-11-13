@@ -42,6 +42,9 @@ public:
     Future& operator=(const Future&) = delete;
     Future& operator=(Future&&) = default;
 
+    static Future instantValue(T value);
+    static Future instantError(std::exception_ptr error);
+
     T get();
     void subscribe(
         std::function<void(T)> val_callback,
@@ -108,6 +111,23 @@ void Promise<T>::setError(std::exception_ptr err) {
         state->produced_ = true;
         state->cv_.notify_one();  // there are no more than one waiters
     }
+}
+
+
+template <class T>
+Future<T> Future<T>::instantValue(T value) {
+    auto state = std::make_shared<details::SharedState<T>>();
+    state->value_ = std::move(value);
+    state->produced_ = true;
+    return Future<T>{state};
+}
+
+template <class T>
+Future<T> Future<T>::instantError(std::exception_ptr error) {
+    auto state = std::make_shared<details::SharedState<T>>();
+    state->error_ = std::move(error);
+    state->produced_ = true;
+    return Future<T>{state};
 }
 
 template <class T>

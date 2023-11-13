@@ -1,0 +1,6 @@
+- [ ] Split ThreadPool and AsyncResult
+- [ ] Simplify Void logic
+- [x] Add AsyncResult::value instead of weird constructor
+- [ ] Fix .template in sort test
+- [ ] Don't pass ThreadPool to GroupAll
+- [ ] Do not duplicate then logic in flatten

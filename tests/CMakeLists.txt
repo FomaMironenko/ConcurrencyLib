@@ -41,3 +41,11 @@ target_link_libraries (
     LinearEquationsTest
     ConcurrencyLib
 )
+
+add_executable(SortTest
+    sort_test.cpp
+)
+target_link_libraries (
+    SortTest
+    ConcurrencyLib
+)

@@ -24,10 +24,16 @@ private:
     {    }
 
 public:
+    static AsyncResult instant(T value, ThreadPool& pool);
+    static AsyncResult instantFail(std::exception_ptr error, ThreadPool& pool);
+
     T get() { return fut_.get(); }
 
     template <class Ret>
     AsyncResult<Ret> then(std::function<Ret(T)> func);
+
+    template <class Ret>
+    AsyncResult<Ret> flatten(std::function<AsyncResult<Ret>(T)> func);
 
 private:
     Future<T> fut_;
@@ -79,7 +85,7 @@ public:
     void stop();
 
     template <class Ret, class Fun, class ...Args>
-    AsyncResult<Ret> submit(Fun func, Args &&...args);
+    AsyncResult<Ret> submit(Fun&& func, Args&& ...args);
 
 private:
     void enqueueTask(ThreadPoolTask task);
@@ -98,7 +104,7 @@ friend class AsyncResult;
 
 
 template <class Ret, class Fun, class ...Args>
-AsyncResult<Ret> ThreadPool::submit(Fun func, Args &&...args) {
+AsyncResult<Ret> ThreadPool::submit(Fun&& func, Args&& ...args) {
     using ContractType = typename std::conditional_t<
         std::is_same_v<Ret, void>,
         Void, Ret
@@ -110,11 +116,26 @@ AsyncResult<Ret> ThreadPool::submit(Fun func, Args &&...args) {
     return {std::move(future), *this};
 }
 
+
+template <class T>
+AsyncResult<T> AsyncResult<T>::instant(T value, ThreadPool& pool) {
+    return AsyncResult<T>{Future<T>::instantValue(std::move(value)), pool};
+}
+
+template <class T>
+AsyncResult<T> AsyncResult<T>::instantFail(std::exception_ptr error, ThreadPool& pool) {
+    return AsyncResult<T>{Future<T>::instantError(std::move(error)), pool};
+}
+
 template <class T>
 template <class Ret>
 AsyncResult<Ret> AsyncResult<T>::then(std::function<Ret(T)> func) {
-    auto [promise, future] = contract<Ret>();
-    auto promise_box = std::make_shared<details::PromiseBox<Ret>>(std::move(promise));
+    using ContractType = typename std::conditional_t<
+        std::is_same_v<Ret, void>,
+        Void, Ret
+    >;
+    auto [promise, future] = contract<ContractType>();
+    auto promise_box = std::make_shared<details::PromiseBox<ContractType>>(std::move(promise));
     fut_.subscribe(
         [pool = parent_pool_, promise_box, func = std::move(func)] (T value) {
             std::function<Ret()> task = std::bind(std::move(func), std::move(value));
@@ -128,10 +149,31 @@ AsyncResult<Ret> AsyncResult<T>::then(std::function<Ret(T)> func) {
     return {std::move(future), *parent_pool_};
 }
 
+template <class T>
 template <class Ret>
-AsyncResult<Ret> AsyncResult<void>::then(std::function<Ret()> func) {
+AsyncResult<Ret> AsyncResult<T>::flatten(std::function<AsyncResult<Ret>(T)> func) {
     auto [promise, future] = contract<Ret>();
     auto promise_box = std::make_shared<details::PromiseBox<Ret>>(std::move(promise));
+    fut_.subscribe(
+        [pool = parent_pool_, promise_box, func = std::move(func)] (T value) {
+            auto res = func(std::move(value));
+            res.fut_.subscribe(
+                [promise_box](Ret ret) { promise_box->get().setValue(std::move(ret)); },
+                [promise_box](std::exception_ptr err) { promise_box->get().setError(err); }
+            );
+        },
+        [promise_box] (std::exception_ptr err) {
+            promise_box->get().setError(err);
+        }
+    );
+    return {std::move(future), *parent_pool_};
+}
+
+
+template <class Ret>
+AsyncResult<Ret> AsyncResult<void>::then(std::function<Ret()> func) {
+    auto [promise, future] = contract<Void>();
+    auto promise_box = std::make_shared<details::PromiseBox<Void>>(std::move(promise));
     fut_.subscribe(
         [pool = parent_pool_, promise_box, func = std::move(func)] (Void) {
             ThreadPool::ThreadPoolTask pool_task = std::make_unique<details::Task<Ret>>(std::move(func), promise_box->get());
