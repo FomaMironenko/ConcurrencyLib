@@ -36,6 +36,8 @@ private:
 friend class ThreadPool;
 template <class U>
 friend class AsyncResult;
+template <class U>
+friend class GroupAll;
 };
 
 
@@ -60,6 +62,8 @@ private:
 friend class ThreadPool;
 template <class U>
 friend class AsyncResult;
+template <class U>
+friend class GroupAll;
 };
 
 

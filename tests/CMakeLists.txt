@@ -26,6 +26,14 @@ target_link_libraries (
     ConcurrencyLib
 )
 
+add_executable(TaskGroupTest
+    task_group_test.cpp
+)
+target_link_libraries (
+    TaskGroupTest
+    ConcurrencyLib
+)
+
 add_executable(LinearEquationsTest
     linear_equations_test.cpp
 )
