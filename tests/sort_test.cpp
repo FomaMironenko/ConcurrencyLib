@@ -7,6 +7,7 @@
 #include "utils/tester.hpp"
 #include "utils/table.hpp"
 
+#include "async_function.hpp"
 #include "thread_pool.hpp"
 #include "task_group.hpp"
 
@@ -38,15 +39,14 @@ std::pair<Iterator, Iterator> split(Iterator begin, Iterator end) {
 template <class Iterator>
 AsyncResult<Void> divideAndSort(Iterator begin, Iterator end, ThreadPool& pool) {
     if (std::distance(begin, end) <= 1) {
-        return AsyncResult<Void>::instant({}, pool);
+        return AsyncResult<Void>::instant(pool, {});
     }
-    return pool
-        .submit<std::pair<Iterator, Iterator>>(split<Iterator>, begin, end)
+    return call_async<std::pair<Iterator, Iterator>>(pool, split<Iterator>, begin, end)
         .template flatten<Void>([begin, end, &pool](std::pair<Iterator, Iterator> middle) {
-            GroupAll<Void> sort_halves(pool);
+            GroupAll<Void> sort_halves;
             sort_halves.join(divideAndSort(begin, middle.first, pool));
             sort_halves.join(divideAndSort(middle.second, end, pool));
-            return sort_halves.handle().then<Void>([middle](std::vector<Void>){ return Void{}; });
+            return sort_halves.merge(pool).then<Void>([middle](std::vector<Void>){ return Void{}; });
         });
 }
 

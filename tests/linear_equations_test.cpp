@@ -5,7 +5,9 @@
 #include "utils/tester.hpp"
 #include "utils/matrix.hpp"
 
+#include "async_function.hpp"
 #include "thread_pool.hpp"
+#include "task_group.hpp"
 
 
 template <class T>
@@ -27,21 +29,25 @@ ColumnVec<T> resolveViaIterations(const Matrix<T>& mtx, const ColumnVec<T> rhs, 
         throw std::runtime_error("Mismatching matrix and rhs size");
     }
     int64_t size = rhs.size();
+    auto async_compute_element = make_async(pool, computeElement<T>);
     ColumnVec<T> result(size);
-    ColumnVec<T> tmp_result(size);
     for (int iter = 0; iter < 1000; ++iter) {
-        std::vector<AsyncResult<T>> tmp;
+        GroupAll<T> vector_elements;
         for (int64_t idx = 0; idx < size; ++idx) {
-            auto fut = pool.submit<T>(computeElement<T>, mtx[idx], std::cref(result), rhs[idx], idx);
-            tmp.push_back(std::move(fut));
+            vector_elements.join( async_compute_element(mtx[idx], std::cref(result), rhs[idx], idx) );
         }
-        for (int64_t idx = 0; idx < size; ++idx) {
-            tmp_result[idx] = tmp[idx].get();
-        }
-        // Two different loops to prevent data race
-        for (int64_t idx = 0; idx < size; ++idx) {
-            result[idx] = tmp_result[idx];
-        }
+        vector_elements
+            .merge(pool)
+            .template then<void>([&result](std::vector<T> updated) {
+                if (static_cast<int64_t>(updated.size()) != result.size()) {
+                    LOG_ERR << "Mismatching result (" << result.size() << ") and output (" << updated.size() << ") sizes";
+                    throw std::logic_error("Wrong vector update size");
+                }
+                for (int64_t idx = 0; idx < updated.size(); ++idx) {
+                    result[idx] = updated[idx];
+                }
+            })
+            .get();
     }
     return result;
 }
