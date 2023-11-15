@@ -12,16 +12,17 @@
 #include "utils/tester.hpp"
 
 #include "thread_pool.hpp"
+#include "async_function.hpp"
 
 using namespace std::chrono_literals;
 
 
 bool just_works() {
     ThreadPool pool(4);
-    auto fut_bool = pool.submit<bool>([]() {return true; });
-    auto fut_int = pool.submit<int>([]() { return 42; });
-    auto fut_double = pool.submit<double>([]() { return 3.14; });
-    auto fut_string = pool.submit<std::string>([]() { return "string"; });
+    auto fut_bool = call_async<bool>(pool, [](){return true; });
+    auto fut_int = call_async<int>(pool, []() { return 42; });
+    auto fut_double = call_async<double>(pool, []() { return 3.14; });
+    auto fut_string = call_async<std::string>(pool, []() { return "string"; });
     ASSERT_EQ(fut_bool.get(), true);
     ASSERT_EQ(fut_int.get(), 42);
     ASSERT_EQ(fut_double.get(), 3.14);
@@ -32,7 +33,7 @@ bool just_works() {
 bool subscription_just_works() {
     ThreadPool pool(2);
     int source = 3;
-    auto fut_string = pool.submit<int>(
+    auto fut_string = call_async<int>(pool,
         [](int input) { return input; },
         source
     ).then<int>(
@@ -46,10 +47,42 @@ bool subscription_just_works() {
     return true;
 }
 
+template <class T>
+T binPow(T base, T pow) {
+    if (pow == 0) {
+        return 1;
+    } else if (pow % 2 == 0) {
+        int tmp = binPow(base, pow / 2);
+        return tmp * tmp;
+    } else {
+        return base * binPow(base, pow - 1);
+    }
+}
+
+bool make_async_just_works() {
+    ThreadPool pool(2);
+
+    auto async_pow = make_async(pool, binPow<int64_t>);
+    std::vector<AsyncResult<int64_t>> results;
+    int64_t expected = 0;
+    for (int64_t i = 0; i < 100; ++i) {
+        results.push_back(async_pow(i, 2));
+        expected += std::pow<int64_t>(i, 2);
+    }
+
+    int64_t actual = 0;
+    for (auto & asunc_res : results) {
+        actual += asunc_res.get();
+    }
+    ASSERT_EQ(actual, expected);
+
+    return true;
+}
+
 bool subscription_error() {
     ThreadPool pool(2);
     bool poisoned = false;
-    auto fut = pool.submit<int>(
+    auto fut = call_async<int>(pool,
         []() { return 42; }
     ).then<int>(
         [](int result) {
@@ -87,7 +120,7 @@ bool map_reduce() {
     uint32_t expected = 0;  // unsigned integer overflow is not a UB
     constexpr uint32_t num_iters = 10'000;
     for (uint32_t iter = 0; iter < num_iters; ++iter) {
-        auto async_res = pool.submit<uint32_t>(
+        auto async_res = call_async<uint32_t>(pool, 
             std::pow<uint32_t>,
             iter, 2
         ).then<uint32_t>(
@@ -112,15 +145,14 @@ bool test_starvation() {
     std::mutex mtx;
     constexpr size_t num_iters = 10'000;
 
+    AsyncFunction<void()> vote_for_worker = make_async(pool, 
+        [&worker_cnt, &mtx]() mutable {
+            std::lock_guard guard(mtx);
+            ++worker_cnt[std::this_thread::get_id()];
+        });
     std::vector<AsyncResult<void>> task_handles;
     for (size_t iter = 0; iter < num_iters; ++iter) {
-        auto result = pool.submit<void>(
-            [&worker_cnt, &mtx]() mutable {
-                std::lock_guard guard(mtx);
-                ++worker_cnt[std::this_thread::get_id()];
-            }
-        );
-        task_handles.push_back(std::move(result));
+        task_handles.push_back(vote_for_worker());
     }
     for (auto & handle : task_handles) {
         handle.get();
@@ -140,7 +172,7 @@ bool test_then_starvation() {
     std::unordered_map<std::thread::id, size_t> worker_cnt;
     constexpr size_t num_iters = 100'000;
 
-    AsyncResult<size_t> fut = pool.submit<size_t>([]() { return 0; });
+    AsyncResult<size_t> fut = AsyncResult<size_t>::instant(pool, 0);
     for (size_t iter = 0; iter < num_iters; ++iter) {
         fut = fut.then<size_t>([&worker_cnt](size_t val) mutable {
             // Synchronized via continuation
@@ -163,11 +195,12 @@ bool test_then_starvation() {
 int main() {
     TEST(just_works, "Just works");
     TEST(subscription_just_works, "Subscription just works");
+    TEST(make_async_just_works, "make_async just works");
     TEST(subscription_error, "Error in subscription");
     TEST(map_reduce, "Map reduce");
     TEST(test_starvation<2>, "Starvation test with 2 workers");
-    TEST(test_starvation<5>, "Starvation test with 6 workers");
+    TEST(test_starvation<5>, "Starvation test with 5 workers");
     TEST(test_then_starvation<2>, "Continuation starvation test with 2 workers");
-    TEST(test_then_starvation<5>, "Continuation starvation test with 6 workers");
+    TEST(test_then_starvation<5>, "Continuation starvation test with 5 workers");
     return EXIT_SUCCESS;
 }
