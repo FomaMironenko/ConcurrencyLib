@@ -1,6 +1,10 @@
-- [ ] Split ThreadPool and AsyncResult
+- [x] Split ThreadPool and AsyncResult
 - [ ] Simplify Void logic
 - [x] Add AsyncResult::value instead of weird constructor
 - [ ] Fix .template in sort test
-- [ ] Don't pass ThreadPool to GroupAll
+- [x] Don't pass ThreadPool to GroupAll
+- [ ] Enable AsyncResult and GroupAll.merge without ThreadPool
 - [ ] Do not duplicate then logic in flatten
+- [ ] Safely handle references to ThreadPool
+- [ ] Enable std::function submit to ThreadPool and use this interface in AsyncResult impl
+- [ ] Add continue and wait methods to AsyncResult

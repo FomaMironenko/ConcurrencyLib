@@ -26,8 +26,8 @@ public:
 private:
     std::shared_ptr<details::SharedState<T>> state_;
 
-template <class Y>
-friend Contract<Y> contract();
+template <class U>
+friend Contract<U> contract();
 };
 
 
@@ -54,8 +54,8 @@ public:
 private:
     std::shared_ptr<details::SharedState<T>> state_;
 
-template <class Y>
-friend Contract<Y> contract();
+template <class U>
+friend Contract<U> contract();
 };
 
 

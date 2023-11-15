@@ -30,7 +30,7 @@ private:
     int64_t size_;
     T* data_;
 
-template <class Y>
+template <class U>
 friend class Matrix;
 };
 
