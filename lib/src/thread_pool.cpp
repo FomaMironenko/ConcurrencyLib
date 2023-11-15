@@ -1,11 +1,10 @@
-
 #include "utils/logger.hpp"
 #include "thread_pool.hpp"
 
 
 void runWorkerLoop(ThreadPool *pool) {
     for (;;) {
-        ThreadPool::ThreadPoolTask task = nullptr;
+        ThreadPool::Task task = nullptr;
         {
             std::unique_lock guard(pool->mtx_);
             pool->queue_cv_.wait(guard, [pool]() {
@@ -50,8 +49,9 @@ void ThreadPool::stop() {
     stopped_ = false;
 }
 
-void ThreadPool::enqueueTask(ThreadPoolTask task) {
-    std::lock_guard guard(mtx_);
+void ThreadPool::submit(ThreadPool::Task task) {
+    std::unique_lock guard(mtx_);
     tasks_.push(std::move(task));
+    guard.unlock();
     queue_cv_.notify_one();
 }

@@ -2,23 +2,17 @@
 
 #include <functional>
 
+#include "thread_pool_task_base.hpp"
 #include "contract.hpp"
 #include "void.hpp"
 
 
 namespace details {
 
-class ITaskBase {
-public:
-    virtual ~ITaskBase() = default;
-    virtual void run() = 0;
-};
-
-
 template <class T>
-class Task : public ITaskBase {
+class AsyncTask : public ITaskBase {
 public:
-    Task(std::function<T()>&& func, Promise<T> promise)
+    AsyncTask(std::function<T()>&& func, Promise<T> promise)
         : func_(std::move(func))
         , promise_(std::move(promise))
     {   }
@@ -39,9 +33,9 @@ private:
 
 
 template <>
-class Task<void> : public ITaskBase {
+class AsyncTask<void> : public ITaskBase {
 public:
-    Task(std::function<void()>&& func, Promise<Void> promise)
+    AsyncTask(std::function<void()>&& func, Promise<Void> promise)
         : func_(std::move(func))
         , promise_(std::move(promise))
     {   }
