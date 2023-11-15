@@ -7,6 +7,7 @@
 #include <exception>
 
 #include "thread_pool.hpp"
+#include "async_result.hpp"
 
 
 namespace details {
@@ -50,37 +51,25 @@ class GroupAll {
     >;
 
 public:
-    explicit GroupAll(ThreadPool& pool)
-        : pool_(&pool)
-    {
+    GroupAll() {
         auto [promise, future] = contract<std::vector<ContractType>>();
         state_ = std::make_shared<details::GroupState<T>>(std::move(promise));
         future_opt_ = std::move(future);
     }
 
-    template <class Fun, class ...Args>
-    void submit(Fun&& func, Args &&...args);
     void join(AsyncResult<T> result);
 
-    AsyncResult<std::vector<T>> handle();
+    AsyncResult<std::vector<T>> merge(ThreadPool& pool);
 
 private:
     static void onAllReady(Promise<std::vector<ContractType>>& promise,
                            std::list<std::shared_ptr<details::ResultBox<T>>>&& results);
 
 private:
-    ThreadPool* pool_;
     std::shared_ptr<details::GroupState<T>> state_;
     std::optional<Future<std::vector<ContractType>>> future_opt_;
 };
 
-
-template <class T>
-template <class Fun, class ...Args>
-void GroupAll<T>::submit(Fun&& func, Args &&...args) {
-    AsyncResult<T> res = pool_->submit<T>(std::forward<Fun>(func), std::forward<Args>(args)...);
-    join(std::move(res));
-}
 
 template <class T>
 void GroupAll<T>::join(AsyncResult<T> res) {
@@ -113,9 +102,9 @@ void GroupAll<T>::join(AsyncResult<T> res) {
 
 
 template <class T>
-AsyncResult<std::vector<T>> GroupAll<T>::handle() {
+AsyncResult<std::vector<T>> GroupAll<T>::merge(ThreadPool& pool) {
     if (!future_opt_.has_value()) {
-        throw std::runtime_error("Trying to get GroupAll handle twice");
+        throw std::runtime_error("Trying to get merge GroupAll twice");
     }
     Future<std::vector<T>> fut = std::move(*future_opt_);
     future_opt_ = std::nullopt;
@@ -125,7 +114,7 @@ AsyncResult<std::vector<T>> GroupAll<T>::handle() {
     ) {
         onAllReady(state_->promise, std::move(state_->results));
     }
-    return {std::move(fut), *pool_};
+    return {pool, std::move(fut)};
 }
 
 template <class T>
