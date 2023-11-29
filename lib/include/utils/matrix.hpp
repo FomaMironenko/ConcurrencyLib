@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <memory>
+#include <vector>
 #include <iostream>
 
 template <class T>
@@ -26,6 +27,10 @@ public:
         return data_[idx];
     }
 
+    int64_t size() const {
+        return size_;
+    }
+
 private:
     int64_t size_;
     T* data_;
@@ -33,6 +38,15 @@ private:
 template <class U>
 friend class Matrix;
 };
+
+template <class T>
+void dump(const RowView<T> row) {
+    for (int64_t idx = 0; idx < row.size(); ++idx) {
+        std::cout << row[idx] << ", ";
+    }
+    std::cout << std::endl;
+}
+
 
 
 template <class T>
@@ -42,8 +56,7 @@ public:
         if (rows <= 0 || cols <= 0) {
             throw std::runtime_error("Matrix dimensions must be positive integers");
         }
-        data_ = std::unique_ptr<T[]>(new T[rows * cols]);
-        memset(data_.get(), 0, rows * cols);
+        data_ = std::vector<T>(rows * cols, 0);
     }
 
     RowView<T> operator[](int64_t idx) {
@@ -51,7 +64,7 @@ public:
             LOG_ERR << "Index exceeds number of rows: " << idx << " / " << n_rows_;
             throw std::runtime_error("Index exceeds number of rows");
         }
-        return RowView<T>(data_.get() + n_cols_ * (idx), n_cols_);
+        return RowView<T>(data_.data() + (n_cols_ * idx), n_cols_);
     }
 
     const RowView<T> operator[](int64_t idx) const {
@@ -59,7 +72,7 @@ public:
             LOG_ERR << "Index exceeds number of rows: " << idx << " / " << n_rows_;
             throw std::runtime_error("Index exceeds number of rows");
         }
-        return RowView<T>(data_.get() + n_cols_ * (idx), n_cols_);
+        return RowView<T>(const_cast<T*>(data_.data()) + (n_cols_ * idx), n_cols_);
     }
 
     int64_t rows() const { return n_rows_; }
@@ -68,8 +81,16 @@ public:
 private:
     int64_t n_rows_;
     int64_t n_cols_;
-    std::unique_ptr<T[]> data_;
+    std::vector<T> data_;
 };
+
+template <class T>
+void dump(const Matrix<T>& mtx) {
+    for (int64_t row = 0; row < mtx.rows(); ++row) {
+        dump(mtx[row]);
+    }
+    std::cout << std::endl;
+}
 
 
 template <class T>
@@ -96,3 +117,11 @@ private:
     int64_t size_;
     std::vector<T> data_;
 };
+
+template <class T>
+void dump(const ColumnVec<T> col) {
+    for (int64_t idx = 0; idx < col.size(); ++idx) {
+        std::cout << col[idx] << ", ";
+    }
+    std::cout << std::endl;
+}

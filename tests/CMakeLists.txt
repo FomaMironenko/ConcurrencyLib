@@ -42,6 +42,14 @@ target_link_libraries (
     ConcurrencyLib
 )
 
+add_executable(MatrixTest
+    matrix_test.cpp
+)
+target_link_libraries (
+    MatrixTest
+    ConcurrencyLib
+)
+
 add_executable(SortTest
     sort_test.cpp
 )
