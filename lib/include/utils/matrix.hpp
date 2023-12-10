@@ -96,12 +96,13 @@ void dump(const Matrix<T>& mtx) {
 template <class T>
 class ColumnVec {
 public:
-    explicit ColumnVec(int64_t size) : size_(size) {
-        if (size_ <= 0) {
+    explicit ColumnVec(int64_t size) {
+        if (size <= 0) {
             throw std::runtime_error("Vector size must be positive integer");
         }
-        data_ = std::vector<T>(size_, 0);
+        data_ = std::vector<T>(size, 0);
     }
+    explicit ColumnVec(std::vector<T> vec) : data_(std::move(vec)) {    }
     
     T& operator[](int64_t idx) {
         return data_.at(idx);
@@ -111,10 +112,9 @@ public:
         return data_.at(idx);
     }
 
-    const int64_t size() const { return size_; }
+    const int64_t size() const { return static_cast<int64_t>(data_.size()); }
 
 private:
-    int64_t size_;
     std::vector<T> data_;
 };
 
