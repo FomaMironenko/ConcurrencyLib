@@ -79,6 +79,71 @@ bool make_async_just_works() {
     return true;
 }
 
+bool flatten_is_async() {
+    ThreadPool pool(2);
+    Timer time;
+    AsyncResult<int> fut = call_async<int>(pool, []() {
+        std::this_thread::sleep_for(50ms);
+        return 42;
+    }).then<AsyncResult<int>>([&pool, &time](int input) {
+        double elapsedMs = time.elapsedMilliseconds();
+        if (elapsedMs < 50 || elapsedMs > 50 + 20) {
+            throw std::runtime_error("Schedule error 1");
+        }
+        std::this_thread::sleep_for(50ms);
+        return call_async<int>(pool, [&time](int val) {
+            double elapsedMs = time.elapsedMilliseconds();
+            if (elapsedMs < 100 || elapsedMs > 100 + 20) {
+                throw std::runtime_error("Schedule error 2");
+            }
+            std::this_thread::sleep_for(50ms);
+            return val * 2;
+        }, input);
+    }).flatten();
+    double elapsedMs = time.elapsedMilliseconds();
+    ASSERT(elapsedMs < 20);
+    int value = 0;
+    try {
+        value = fut.get();
+    } catch (const std::exception & err) {
+        LOG_ERR << err.what();
+        ASSERT(false);
+    }
+    elapsedMs = time.elapsedMilliseconds();
+    ASSERT(value == 42 * 2);
+    ASSERT(elapsedMs > 150);
+    return true;
+}
+
+bool flatten_error() {
+    ThreadPool pool(2);
+    // Error in the first level
+    auto fut1 = call_async<AsyncResult<int>>(pool, [&pool]() {
+        throw std::runtime_error("First level err");
+        return AsyncResult<int>::instant(pool, 0);
+    }).flatten();
+    try {
+        fut1.get();
+        ASSERT(false);
+    } catch (const std::exception & err) {
+        ASSERT_EQ(err.what(), std::string("First level err"))
+    }
+    // Error in the second level
+    auto fut2 = call_async<AsyncResult<int>>(pool, [&pool]() {
+        return call_async<int>(pool, []() {
+            throw std::runtime_error("Second level err");
+            return 0;
+        });
+    }).flatten();
+    try {
+        fut2.get();
+        ASSERT(false);
+    } catch (const std::exception & err) {
+        ASSERT_EQ(err.what(), std::string("Second level err"))
+    }
+    return true;
+}
+
 bool subscription_error() {
     ThreadPool pool(2);
     bool poisoned = false;
@@ -195,8 +260,10 @@ bool test_then_starvation() {
 int main() {
     TEST(just_works, "Just works");
     TEST(subscription_just_works, "Subscription just works");
+    TEST(flatten_is_async, "Flatten is async");
     TEST(make_async_just_works, "make_async just works");
     TEST(subscription_error, "Error in subscription");
+    TEST(flatten_error, "Error in flatten");
     TEST(map_reduce, "Map reduce");
     TEST(test_starvation<2>, "Starvation test with 2 workers");
     TEST(test_starvation<5>, "Starvation test with 5 workers");

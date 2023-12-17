@@ -42,12 +42,12 @@ AsyncResult<Void> divideAndSort(Iterator begin, Iterator end, ThreadPool& pool) 
         return AsyncResult<Void>::instant(pool, {});
     }
     return call_async<std::pair<Iterator, Iterator>>(pool, split<Iterator>, begin, end)
-        .template flatten<Void>([begin, end, &pool](std::pair<Iterator, Iterator> middle) {
+        .template then<AsyncResult<Void>>([begin, end, &pool](std::pair<Iterator, Iterator> middle) {
             GroupAll<Void> sort_halves;
             sort_halves.join(divideAndSort(begin, middle.first, pool));
             sort_halves.join(divideAndSort(middle.second, end, pool));
             return sort_halves.merge(pool).then<Void>([middle](std::vector<Void>){ return Void{}; });
-        });
+        }).flatten();
 }
 
 }  // namespace details

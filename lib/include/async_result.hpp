@@ -5,6 +5,7 @@
 #include <memory>
 
 #include "../private/async_task.hpp"
+#include "../private/type_traits.hpp"
 #include "contract.hpp"
 #include "thread_pool.hpp"
 
@@ -18,26 +19,30 @@ private:
     {    }
 
 public:
+
+    // Create a ready-to-use AsyncResult filled with value
     static AsyncResult instant(ThreadPool& pool, T value);
+
+    // Create a ready-to-use AsyncResult filled with error
     static AsyncResult instantFail(ThreadPool& pool, std::exception_ptr error);
 
-    T get() { return fut_.get(); }
+    // Synchronously get the result
+    T get();
 
+    // Asynchronously unwrap nested AsyncResult
+    T flatten();
+
+    // Continue task execution in parent ThreadPool
     template <class Ret>
     AsyncResult<Ret> then(std::function<Ret(T)> func);
-
-    template <class Ret>
-    AsyncResult<Ret> flatten(std::function<AsyncResult<Ret>(T)> func);
 
 private:
     Future<T> fut_;
     ThreadPool* parent_pool_;
 
 friend class ThreadPool;
-template <class U>
-friend class AsyncResult;
-template <class U>
-friend class GroupAll;
+template <class U> friend class AsyncResult;
+template <class U> friend class GroupAll;
 template <class Ret, class Fun, class ...Args>
 friend inline AsyncResult<Ret> call_async(ThreadPool& pool, Fun&& fun, Args &&...args);
 };
@@ -62,15 +67,17 @@ private:
     ThreadPool* parent_pool_;
 
 friend class ThreadPool;
-template <class U>
-friend class AsyncResult;
-template <class U>
-friend class GroupAll;
+template <class U> friend class AsyncResult;
+template <class U> friend class GroupAll;
 template <class Ret, class Fun, class ...Args>
 friend inline AsyncResult<Ret> call_async(ThreadPool& pool, Fun&& fun, Args &&...args);
 };
 
 
+template <class T>
+T AsyncResult<T>::get() {
+    return fut_.get();
+}
 
 template <class T>
 AsyncResult<T> AsyncResult<T>::instant(ThreadPool& pool, T value) {
@@ -105,26 +112,6 @@ AsyncResult<Ret> AsyncResult<T>::then(std::function<Ret(T)> func) {
     return AsyncResult<Ret>{*parent_pool_, std::move(future)};
 }
 
-template <class T>
-template <class Ret>
-AsyncResult<Ret> AsyncResult<T>::flatten(std::function<AsyncResult<Ret>(T)> func) {
-    auto [promise, future] = contract<Ret>();
-    auto promise_box = std::make_shared<details::PromiseBox<Ret>>(std::move(promise));
-    fut_.subscribe(
-        [pool = parent_pool_, promise_box, func = std::move(func)] (T value) {
-            auto res = func(std::move(value));
-            res.fut_.subscribe(
-                [promise_box](Ret ret) { promise_box->get().setValue(std::move(ret)); },
-                [promise_box](std::exception_ptr err) { promise_box->get().setError(err); }
-            );
-        },
-        [promise_box] (std::exception_ptr err) {
-            promise_box->get().setError(err);
-        }
-    );
-    return AsyncResult<Ret>{*parent_pool_, std::move(future)};
-}
-
 
 template <class Ret>
 AsyncResult<Ret> AsyncResult<void>::then(std::function<Ret()> func) {
@@ -140,4 +127,31 @@ AsyncResult<Ret> AsyncResult<void>::then(std::function<Ret()> func) {
         }
     );
     return {std::move(future), *parent_pool_};
+}
+
+
+template <class T>
+T AsyncResult<T>::flatten() {
+    // Cannot be compiled for non AsyncResult type T
+    static_assert(is_async_result<T>::value, "flatten cannot be used with non nested AsyncResults");
+    using Ret = typename async_type<T>::type;
+    // Utilize duck typing
+    auto [promise, future] = contract<Ret>();
+    auto promise_box = std::make_shared<details::PromiseBox<Ret>>(std::move(promise));
+    fut_.subscribe(
+        [pool = parent_pool_, promise_box] (AsyncResult<Ret> child_res) {
+            child_res.fut_.subscribe(
+                [promise_box](Ret ret) {
+                    promise_box->get().setValue(std::move(ret));
+                },
+                [promise_box](std::exception_ptr err) {
+                    promise_box->get().setError(err);
+                }
+            );
+        },
+        [promise_box] (std::exception_ptr err) {
+            promise_box->get().setError(err);
+        }
+    );
+    return AsyncResult<Ret>{*parent_pool_, std::move(future)};
 }

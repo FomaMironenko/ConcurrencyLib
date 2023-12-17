@@ -12,6 +12,10 @@ template <class Ret, class Fun, class ...Args>
 inline AsyncResult<Ret> call_async(ThreadPool& pool, Fun&& fun, Args &&...args);
 
 template <class Fun>
+inline auto make_async(ThreadPool& pool, Fun&& fun);
+
+
+template <class Fun>
 class AsyncFunction {
 private:
     AsyncFunction(ThreadPool& pool, std::function<Fun> fun) : parent_pool_(&pool), callable_(std::move(fun)) { }
