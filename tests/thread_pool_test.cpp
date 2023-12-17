@@ -107,7 +107,7 @@ bool flatten_is_async() {
         value = fut.get();
     } catch (const std::exception & err) {
         LOG_ERR << err.what();
-        ASSERT(false);
+        FAIL();
     }
     elapsedMs = time.elapsedMilliseconds();
     ASSERT(value == 42 * 2);
@@ -124,7 +124,7 @@ bool flatten_error() {
     }).flatten();
     try {
         fut1.get();
-        ASSERT(false);
+        FAIL();
     } catch (const std::exception & err) {
         ASSERT_EQ(err.what(), std::string("First level err"))
     }
@@ -137,7 +137,7 @@ bool flatten_error() {
     }).flatten();
     try {
         fut2.get();
-        ASSERT(false);
+        FAIL();
     } catch (const std::exception & err) {
         ASSERT_EQ(err.what(), std::string("Second level err"))
     }
@@ -169,11 +169,11 @@ bool subscription_error() {
     );
     try {
         fut.get();
-        ASSERT(false);  // must throw
+        FAIL();  // must throw
     } catch (const std::runtime_error& err) {
         ASSERT_EQ(err.what(), std::string("Oops..."));
     } catch (...) {
-        ASSERT(false);
+        FAIL();
     }
     ASSERT(!poisoned);
     return true;
