@@ -12,7 +12,7 @@
 
 using namespace std::chrono_literals;
 
-bool waitBlocks() {
+bool get_blocks() {
     auto [promise, future] = contract<int>();
 
     Timer timer;
@@ -45,6 +45,64 @@ bool subscription2() {
     promise.setValue(42);
     future.subscribe([&dst] (int result) { dst = result; });
     ASSERT_EQ(dst, 42);
+    return true;
+}
+
+bool futures_are_oneshot() {
+    // Future::get consumes the state
+    auto [pro1, fut1] = contract<int>();
+    pro1.setValue(42);
+    ASSERT_EQ(fut1.get(), 42);
+    try {
+        fut1.get();
+        FAIL();
+    } catch (...) { /*ok*/ }
+    try {
+        fut1.subscribe([](int){}, nullptr);
+        FAIL();
+    } catch (...) { /*ok*/ }
+    try {
+        fut1.wait();
+        FAIL();
+    } catch (...) { /*ok*/ }
+    // Future::subscribe consumes the state
+    auto [pro2, fut2] = contract<int>();
+    fut2.subscribe([](int){}, nullptr);
+    pro2.setValue(42);
+    try {
+        fut2.get();
+        FAIL();
+    } catch (...) { /*ok*/ }
+    try {
+        fut2.subscribe([](int){}, nullptr);
+        FAIL();
+    } catch (...) { /*ok*/ }
+    try {
+        fut2.wait();
+        FAIL();
+    } catch (...) { /*ok*/ }
+    return true;
+}
+
+bool wait_does_not_consume() {
+    // Can get after wait
+    auto [pro1, fut1] = contract<int>();
+    pro1.setValue(42);
+    fut1.wait();
+    try {
+        ASSERT_EQ(fut1.get(), 42);
+    } catch (...) {
+        FAIL();
+    }
+    // Can subscribe after wait
+    auto [pro2, fut2] = contract<int>();
+    pro2.setValue(42);
+    fut2.wait();
+    try {
+        fut2.subscribe([](int){}, nullptr);
+    } catch (...) {
+        FAIL();
+    }
     return true;
 }
 
@@ -177,9 +235,11 @@ bool subscibes_stress() {
 
 
 int main() {
-    TEST(waitBlocks, "Get blocks");
+    TEST(get_blocks, "Get blocks");
     TEST(subscription1, "Subscribe before set");
     TEST(subscription2, "Subscribe after set");
+    TEST(futures_are_oneshot, "Futures are oneshot");
+    TEST(wait_does_not_consume, "Wait does not invalidate the Future");
     TEST(moveonly_value, "Moveonly value");
     TEST(exception_in_get, "Exception in get");
     TEST(exception_in_subscribe, "Exception in subscribe");

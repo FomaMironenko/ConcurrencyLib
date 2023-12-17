@@ -42,10 +42,21 @@ public:
     Future& operator=(const Future&) = delete;
     Future& operator=(Future&&) = default;
 
+    // Create a ready-to-use Future filled with a value.
     static Future instantValue(T value);
+    // Create a ready-to-use Future filled with an exception.
     static Future instantError(std::exception_ptr error);
 
+    // Wait for the Promise to be resolved and return value. Invalidates the Future.
     T get();
+
+    // Wait for the Promise to be resolved, but does not invalidate the Future.
+    void wait();
+
+    // Subscribe to the result. Ann appropriate callback will be executed instantly
+    // by this thread in case a result has been produced already, and by the producer
+    // thread when calling setValue / setError on Promise object otherwise.
+    // Invalidates the Future.
     void subscribe(
         std::function<void(T)> val_callback,
         std::function<void(std::exception_ptr)> err_callback = nullptr
@@ -81,7 +92,7 @@ template <class T>
 void Promise<T>::setValue(T value) {
     auto state = std::move(state_);
     if (!state) {
-        throw std::runtime_error("Trying to set value twice");
+        throw std::runtime_error("Trying to set value in a produced state");
     }
     // Guard will be destructed before state. Thus no use after free is available.
     std::lock_guard guard(state->mtx_);
@@ -99,7 +110,7 @@ template <class T>
 void Promise<T>::setError(std::exception_ptr err) {
     auto state = std::move(state_);
     if (!state) {
-        throw std::runtime_error("Trying to set value twice");
+        throw std::runtime_error("Trying to set error in a produced state");
     }
     // Guard will be destructed before state. Thus no use after free is available.
     std::lock_guard guard(state->mtx_);
@@ -134,7 +145,7 @@ template <class T>
 T Future<T>::get() {
     auto state = std::move(state_);
     if (!state) {
-        throw std::runtime_error("Trying to get state twice");
+        throw std::runtime_error("Trying to get a spoiled state");
     }
     // Guard will be destructed before state. Thus no use after free is available.
     std::unique_lock guard(state->mtx_);
@@ -150,13 +161,24 @@ T Future<T>::get() {
 }
 
 template <class T>
+void Future<T>::wait() {
+    if (!state_) {
+        throw std::runtime_error("Trying to wait for spoiled state");
+    }
+    std::unique_lock guard(state_->mtx_);
+    while (!state_->produced_) {
+        state_->cv_.wait(guard);
+    }
+}
+
+template <class T>
 void Future<T>::subscribe(
         std::function<void(T)> val_callback,
         std::function<void(std::exception_ptr)> err_callback
 ) {
     auto state = std::move(state_);
     if (!state) {
-        throw std::runtime_error("Trying to subscribe to state twice");
+        throw std::runtime_error("Trying to subscribe to spoiled state");
     }
     // Guard will be destructed before state. Thus no use after free is available.
     std::unique_lock guard(state->mtx_);

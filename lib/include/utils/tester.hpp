@@ -5,6 +5,10 @@
 #include "iostream"
 
 
+#define FAIL() \
+LOG_ERR << "Test case failed"; \
+return false; \
+
 #define ASSERT(bool_val) \
 if ( !(bool_val) ) { \
     LOG_ERR << "Assertion failed: \"" << #bool_val << '"'; \
