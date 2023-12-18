@@ -81,7 +81,7 @@ Matrix<int64_t> parallelMultiply(const Matrix<int64_t>& lhs, const Matrix<int64_
 
 
 template <int num_workers>
-bool testParallelMultiplication() {
+DEFINE_TEST(testParallelMultiplication) {
     ThreadPool tp(num_workers);
     constexpr int NUM_ITER = 1000;
 
@@ -117,14 +117,12 @@ bool testParallelMultiplication() {
             }
         }
     }
-    return true;
 }
 
 
 int main() {
-    TEST(testParallelMultiplication<1>, "1 Worker");
-    TEST(testParallelMultiplication<2>, "2 Workers");
-    TEST(testParallelMultiplication<4>, "4 Workers");
-
-    return EXIT_SUCCESS;
+    RUN_TEST(testParallelMultiplication<1>, "1 Worker");
+    RUN_TEST(testParallelMultiplication<2>, "2 Workers");
+    RUN_TEST(testParallelMultiplication<4>, "4 Workers");
+    COMPLETE();
 }

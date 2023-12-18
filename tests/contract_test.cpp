@@ -12,7 +12,8 @@
 
 using namespace std::chrono_literals;
 
-bool get_blocks() {
+
+DEFINE_TEST(get_blocks) {
     auto [promise, future] = contract<int>();
 
     Timer timer;
@@ -27,28 +28,28 @@ bool get_blocks() {
     ASSERT(val == 42);
     ASSERT(ms >= 100.0);
     ASSERT(ms <= 110.0);
-    return true;
 }
 
-bool subscription1() {
+
+DEFINE_TEST(subscription1) {
     int dst = 0;
     auto [promise, future] = contract<int>();
     future.subscribe([&dst] (int result) { dst = result; });
     promise.setValue(42);
     ASSERT_EQ(dst, 42);
-    return true;
 }
 
-bool subscription2() {
+
+DEFINE_TEST(subscription2) {
     int dst = 0;
     auto [promise, future] = contract<int>();
     promise.setValue(42);
     future.subscribe([&dst] (int result) { dst = result; });
     ASSERT_EQ(dst, 42);
-    return true;
 }
 
-bool futures_are_oneshot() {
+
+DEFINE_TEST(futures_are_oneshot) {
     // Future::get consumes the state
     auto [pro1, fut1] = contract<int>();
     pro1.setValue(42);
@@ -81,10 +82,10 @@ bool futures_are_oneshot() {
         fut2.wait();
         FAIL();
     } catch (...) { /*ok*/ }
-    return true;
 }
 
-bool wait_does_not_consume() {
+
+DEFINE_TEST(wait_does_not_consume) {
     // Can get after wait
     auto [pro1, fut1] = contract<int>();
     pro1.setValue(42);
@@ -103,10 +104,10 @@ bool wait_does_not_consume() {
     } catch (...) {
         FAIL();
     }
-    return true;
 }
 
-bool moveonly_value() {
+
+DEFINE_TEST(moveonly_value) {
     auto [promise, future] = contract<std::unique_ptr<std::vector<int> > >();
     std::thread producer([promise = std::move(promise)] () mutable {
         auto vec = std::make_unique<std::vector<int>>(std::initializer_list<int>{1, 2, 3, 4, 5});
@@ -116,10 +117,10 @@ bool moveonly_value() {
     producer.join();
     std::vector expected = {1, 2, 3, 4, 5};
     ASSERT_EQ(*vec, expected);
-    return true;
 }
 
-bool exception_in_get() {
+
+DEFINE_TEST(exception_in_get) {
     auto [promise, future] = contract<int >();
     std::thread producer([promise = std::move(promise)]() mutable {
         try {
@@ -135,10 +136,10 @@ bool exception_in_get() {
     } catch (const std::exception& err) {
         ASSERT_EQ(err.what(), std::string("Producer error"));
     }
-    return true;
 }
 
-bool exception_in_subscribe() {
+
+DEFINE_TEST(exception_in_subscribe) {
     auto [promise, future] = contract<int >();
     std::thread producer([promise = std::move(promise)]() mutable {
         try {
@@ -155,10 +156,10 @@ bool exception_in_subscribe() {
     );
     ASSERT(!has_value);
     ASSERT(has_error);
-    return true;
 }
 
-bool map_reduce() {
+
+DEFINE_TEST(map_reduce) {
     constexpr int num_iters = 1000;
     std::vector<Promise<int>> to_map;
     std::vector<Future<int>> mapped;
@@ -190,10 +191,10 @@ bool map_reduce() {
     mapper.join();
     reducer.join();
     ASSERT_EQ(sum_of_squares, expected);
-    return true;
 }
 
-bool subscibes_stress() {
+
+DEFINE_TEST(subscibes_stress) {
     constexpr int num_iters = 1'000'000;
     std::vector<Promise<int>> to_map;
     std::vector<Future<int>> mapped;
@@ -230,20 +231,19 @@ bool subscibes_stress() {
     t1.join();
     t2.join();
     ASSERT_EQ(counter.load(), num_iters);
-    return true;
 }
 
 
 int main() {
-    TEST(get_blocks, "Get blocks");
-    TEST(subscription1, "Subscribe before set");
-    TEST(subscription2, "Subscribe after set");
-    TEST(futures_are_oneshot, "Futures are oneshot");
-    TEST(wait_does_not_consume, "Wait does not invalidate the Future");
-    TEST(moveonly_value, "Moveonly value");
-    TEST(exception_in_get, "Exception in get");
-    TEST(exception_in_subscribe, "Exception in subscribe");
-    TEST(map_reduce, "Map reduce");
-    TEST(subscibes_stress, "Concurrent subscribes");
-    return EXIT_SUCCESS;
+    RUN_TEST(get_blocks, "Get blocks");
+    RUN_TEST(subscription1, "Subscribe before set");
+    RUN_TEST(subscription2, "Subscribe after set");
+    RUN_TEST(futures_are_oneshot, "Futures are oneshot");
+    RUN_TEST(wait_does_not_consume, "Wait does not invalidate the Future");
+    RUN_TEST(moveonly_value, "Moveonly value");
+    RUN_TEST(exception_in_get, "Exception in get");
+    RUN_TEST(exception_in_subscribe, "Exception in subscribe");
+    RUN_TEST(map_reduce, "Map reduce");
+    RUN_TEST(subscibes_stress, "Concurrent subscribes");
+    COMPLETE();
 }

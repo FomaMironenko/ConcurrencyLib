@@ -18,7 +18,7 @@
 using namespace std::chrono_literals;
 
 
-bool just_works() {
+DEFINE_TEST(just_works) {
     ThreadPool pool(4);
     GroupAll<int> tg;
     tg.join(call_async<int>(pool, []() {
@@ -31,10 +31,10 @@ bool just_works() {
     auto results = tg.merge(pool).get();
     std::vector<int> expected = {1, 2, 3, 4};
     ASSERT_EQ(results, expected);
-    return true;
 }
 
-bool continuation() {
+
+DEFINE_TEST(continuation) {
     ThreadPool pool(2);
     GroupAll<int> tg;
     auto pow2 = [](int val) { return val * val; };
@@ -51,11 +51,10 @@ bool continuation() {
         return sum;
     });
     ASSERT_EQ(mapped.get(), expected);
-
-    return true;
 }
 
-bool finish_before_merge() {
+
+DEFINE_TEST(finish_before_merge) {
     ThreadPool pool(2);
     GroupAll<bool> tg;
     tg.join(call_async<bool>(pool, []() { return true; }));
@@ -64,10 +63,10 @@ bool finish_before_merge() {
     std::this_thread::sleep_for(50ms);
     auto res = tg.merge(pool);
     ASSERT_EQ(res.get().size(), 3);
-    return true;
 }
 
-bool finish_after_merge() {
+
+DEFINE_TEST(finish_after_merge) {
     ThreadPool pool(2);
     auto tg = std::make_unique<GroupAll<bool>>();
     AsyncFunction<bool()> async_fun = make_async(pool, []() {
@@ -85,10 +84,10 @@ bool finish_after_merge() {
     for (bool val : vals) {
         ASSERT_EQ(val, true);
     }
-    return true;
 }
 
-bool prod_cons_pools() {
+
+DEFINE_TEST(prod_cons_pools) {
     ThreadPool prod_pool(2);
     ThreadPool cons_pool(2);
 
@@ -135,12 +134,11 @@ bool prod_cons_pools() {
     }
     // No value out of span is present
     ASSERT_EQ(static_cast<int>(freq.size()), MAX - MIN + 1);
-    return true;
 }
 
 
 template <size_t num_workers>
-bool perfect_parallelization() {
+DEFINE_TEST(perfect_parallelization) {
     ThreadPool pool(num_workers);
     constexpr int NUM_CYCLES = 50;
     constexpr int NUM_TASKS = NUM_CYCLES * num_workers;
@@ -160,20 +158,18 @@ bool perfect_parallelization() {
     double coef = elapsedMs / (NUM_CYCLES * jobMs);
     LOG_INFO << NUM_TASKS << " sleeping tasks " << jobMs << " ms each took " << elapsedMs << " ms on " << num_workers << " workers";
     ASSERT(coef < 1.3);
-    return true;
 }
 
 
 int main() {
-    TEST(just_works, "GroupAll just works");
-    TEST(continuation, "Continuation");
-    TEST(finish_before_merge, "Finish before merge");
-    TEST(finish_after_merge, "Finish after merge");
-    TEST(prod_cons_pools, "Producer and consumer pools in single TaskGroup");
-    TEST(perfect_parallelization<1>, "Parallelization 1");
-    TEST(perfect_parallelization<2>, "Parallelization 2");
-    TEST(perfect_parallelization<4>, "Parallelization 4");
-    TEST(perfect_parallelization<8>, "Parallelization 8");
-    
-    return EXIT_SUCCESS;
+    RUN_TEST(just_works, "GroupAll just works");
+    RUN_TEST(continuation, "Continuation");
+    RUN_TEST(finish_before_merge, "Finish before merge");
+    RUN_TEST(finish_after_merge, "Finish after merge");
+    RUN_TEST(prod_cons_pools, "Producer and consumer pools in single TaskGroup");
+    RUN_TEST(perfect_parallelization<1>, "Parallelization 1");
+    RUN_TEST(perfect_parallelization<2>, "Parallelization 2");
+    RUN_TEST(perfect_parallelization<4>, "Parallelization 4");
+    RUN_TEST(perfect_parallelization<8>, "Parallelization 8");
+    COMPLETE();
 }

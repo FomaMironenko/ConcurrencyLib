@@ -60,7 +60,7 @@ void parallelQuickSort(Iterator begin, Iterator end, ThreadPool& pool) {
 }
 
 
-bool test_sort() {
+DEFINE_TEST(test_sort) {
     Timer timer;
     StatsTable table(10, 5);
     table.addHeader();
@@ -100,12 +100,9 @@ bool test_sort() {
 
     }
     table.dump();
-
-    return true;
 }
 
 int main() {
-    TEST(test_sort, "Test sort");
-
-    return EXIT_SUCCESS;
+    RUN_TEST(test_sort, "Test sort");
+    COMPLETE();
 }

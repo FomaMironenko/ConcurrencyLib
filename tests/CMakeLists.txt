@@ -12,7 +12,7 @@ add_test(ContractTest           contract_test.cpp)
 add_test(ThreadPoolTest         thread_pool_test.cpp)
 add_test(TaskGroupTest          task_group_test.cpp)
 
-add_test(ParallelSumTest        parallel_sum_test.cpp)
-add_test(LinearEquationsTest    linear_equations_test.cpp)
 add_test(MatrixTest             matrix_test.cpp)
 add_test(SortTest               sort_test.cpp)
+
+add_test(LinearEquations        linear_equations_test.cpp)

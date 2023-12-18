@@ -17,7 +17,7 @@
 using namespace std::chrono_literals;
 
 
-bool just_works() {
+DEFINE_TEST(just_works) {
     ThreadPool pool(4);
     auto fut_bool = call_async<bool>(pool, [](){return true; });
     auto fut_int = call_async<int>(pool, []() { return 42; });
@@ -27,10 +27,10 @@ bool just_works() {
     ASSERT_EQ(fut_int.get(), 42);
     ASSERT_EQ(fut_double.get(), 3.14);
     ASSERT_EQ(fut_string.get(), "string");
-    return true;
 }
 
-bool subscription_just_works() {
+
+DEFINE_TEST(subscription_just_works) {
     ThreadPool pool(2);
     int source = 3;
     auto fut_string = call_async<int>(pool,
@@ -44,8 +44,8 @@ bool subscription_just_works() {
         [](int result) { return std::to_string(result); }
     );
     ASSERT_EQ(fut_string.get(), "10");
-    return true;
 }
+
 
 template <class T>
 T binPow(T base, T pow) {
@@ -59,7 +59,8 @@ T binPow(T base, T pow) {
     }
 }
 
-bool make_async_just_works() {
+
+DEFINE_TEST(make_async_just_works) {
     ThreadPool pool(2);
 
     auto async_pow = make_async(pool, binPow<int64_t>);
@@ -75,11 +76,10 @@ bool make_async_just_works() {
         actual += asunc_res.get();
     }
     ASSERT_EQ(actual, expected);
-
-    return true;
 }
 
-bool flatten_is_async() {
+
+DEFINE_TEST(flatten_is_async) {
     ThreadPool pool(2);
     Timer time;
     AsyncResult<int> fut = call_async<int>(pool, []() {
@@ -112,10 +112,10 @@ bool flatten_is_async() {
     elapsedMs = time.elapsedMilliseconds();
     ASSERT(value == 42 * 2);
     ASSERT(elapsedMs > 150);
-    return true;
 }
 
-bool flatten_error() {
+
+DEFINE_TEST(flatten_error) {
     ThreadPool pool(2);
     // Error in the first level
     auto fut1 = call_async<AsyncResult<int>>(pool, [&pool]() {
@@ -141,10 +141,10 @@ bool flatten_error() {
     } catch (const std::exception & err) {
         ASSERT_EQ(err.what(), std::string("Second level err"))
     }
-    return true;
 }
 
-bool subscription_error() {
+
+DEFINE_TEST(subscription_error) {
     ThreadPool pool(2);
     bool poisoned = false;
     auto fut = call_async<int>(pool,
@@ -176,10 +176,10 @@ bool subscription_error() {
         FAIL();
     }
     ASSERT(!poisoned);
-    return true;
 }
 
-bool map_reduce() {
+
+DEFINE_TEST(map_reduce) {
     ThreadPool pool(4);
     std::vector<AsyncResult<uint32_t>> mapped;
     uint32_t expected = 0;  // unsigned integer overflow is not a UB
@@ -200,11 +200,11 @@ bool map_reduce() {
         reduced += fut.get();
     }
     ASSERT_EQ(reduced, expected);
-    return true;
 }
 
+
 template <size_t num_workers>
-bool test_starvation() {
+DEFINE_TEST(test_starvation) {
     ThreadPool pool(num_workers);
     std::unordered_map<std::thread::id, size_t> worker_cnt;
     std::mutex mtx;
@@ -227,12 +227,11 @@ bool test_starvation() {
         LOG_INFO << cnt << " / " << num_iters;
         ASSERT(cnt >= (num_iters / num_workers) / 3);
     }
-
-    return true;
 }
 
+
 template <size_t num_workers>
-bool test_then_starvation() {
+DEFINE_TEST(test_then_starvation) {
     ThreadPool pool(num_workers);
     std::unordered_map<std::thread::id, size_t> worker_cnt;
     constexpr size_t num_iters = 100'000;
@@ -252,22 +251,20 @@ bool test_then_starvation() {
         LOG_INFO << cnt << " / " << num_iters;
         ASSERT(cnt >= (num_iters / num_workers) / 3);
     }
-
-    return true;
 }
 
 
 int main() {
-    TEST(just_works, "Just works");
-    TEST(subscription_just_works, "Subscription just works");
-    TEST(flatten_is_async, "Flatten is async");
-    TEST(make_async_just_works, "make_async just works");
-    TEST(subscription_error, "Error in subscription");
-    TEST(flatten_error, "Error in flatten");
-    TEST(map_reduce, "Map reduce");
-    TEST(test_starvation<2>, "Starvation test with 2 workers");
-    TEST(test_starvation<5>, "Starvation test with 5 workers");
-    TEST(test_then_starvation<2>, "Continuation starvation test with 2 workers");
-    TEST(test_then_starvation<5>, "Continuation starvation test with 5 workers");
-    return EXIT_SUCCESS;
+    RUN_TEST(just_works, "Just works");
+    RUN_TEST(subscription_just_works, "Subscription just works")
+    RUN_TEST(flatten_is_async, "Flatten is async")
+    RUN_TEST(make_async_just_works, "make_async just works")
+    RUN_TEST(subscription_error, "Error in subscription")
+    RUN_TEST(flatten_error, "Error in flatten")
+    RUN_TEST(map_reduce, "Map reduce")
+    RUN_TEST(test_starvation<2>, "Starvation test with 2 workers")
+    RUN_TEST(test_starvation<5>, "Starvation test with 5 workers")
+    RUN_TEST(test_then_starvation<2>, "Continuation starvation test with 2 workers")
+    RUN_TEST(test_then_starvation<5>, "Continuation starvation test with 5 workers")
+    COMPLETE()
 }
