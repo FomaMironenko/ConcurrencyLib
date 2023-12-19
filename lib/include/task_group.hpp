@@ -40,7 +40,7 @@ namespace details {
         Promise<std::vector<ContractType>> promise;
     };
 
-};
+}  // namespace details
 
 
 template <class T>
