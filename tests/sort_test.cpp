@@ -46,7 +46,7 @@ AsyncResult<Void> divideAndSort(Iterator begin, Iterator end, ThreadPool& pool) 
             GroupAll<Void> sort_halves;
             sort_halves.join(divideAndSort(begin, middle.first, pool));
             sort_halves.join(divideAndSort(middle.second, end, pool));
-            return sort_halves.merge(pool).then<Void>([middle](std::vector<Void>){ return Void{}; });
+            return sort_halves.merge(pool).then<Void>([](std::vector<Void>){ return Void{}; });
         }).flatten();
 }
 

@@ -139,7 +139,7 @@ T AsyncResult<T>::flatten() {
     auto [promise, future] = contract<Ret>();
     auto promise_box = std::make_shared<details::PromiseBox<Ret>>(std::move(promise));
     fut_.subscribe(
-        [pool = parent_pool_, promise_box] (AsyncResult<Ret> child_res) {
+        [promise_box] (AsyncResult<Ret> child_res) {
             child_res.fut_.subscribe(
                 [promise_box](Ret ret) {
                     promise_box->get().setValue(std::move(ret));

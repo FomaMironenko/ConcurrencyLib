@@ -64,7 +64,7 @@ Matrix<int64_t> parallelMultiply(const Matrix<int64_t>& lhs, const Matrix<int64_
         .merge(tp)
         .then<Matrix<int64_t>>([rows, cols](std::vector<ColumnVec<int64_t>> prod_rows) {
             Matrix<int64_t> result(rows, cols);
-            if (prod_rows.size() != rows) {
+            if (static_cast<int64_t>(prod_rows.size()) != rows) {
                 throw std::logic_error("Unexpected number of results from pool");
             }
             for (int row = 0; row < rows; ++row) {

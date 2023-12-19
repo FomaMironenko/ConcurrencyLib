@@ -63,7 +63,7 @@ DEFINE_TEST(finish_before_merge) {
     tg.join(call_async<bool>(pool, []() { return true; }));
     std::this_thread::sleep_for(50ms);
     auto res = tg.merge(pool);
-    ASSERT_EQ(res.get().size(), 3);
+    ASSERT_EQ(res.get().size(), 3u);
 }
 
 
@@ -81,7 +81,7 @@ DEFINE_TEST(finish_after_merge) {
     asm("");    // prohibit reordering
     tg.reset(); // destroy task group
     std::vector<bool> vals = res.get();
-    ASSERT_EQ(vals.size(), 3);
+    ASSERT_EQ(vals.size(), 3u);
     for (bool val : vals) {
         ASSERT_EQ(val, true);
     }

@@ -32,8 +32,8 @@ public:
     }
 
 private:
-    std::function<Fun> callable_;
     ThreadPool* parent_pool_;
+    std::function<Fun> callable_;
 
 template <class F>
 friend inline auto make_async(ThreadPool& pool, F&& fun);

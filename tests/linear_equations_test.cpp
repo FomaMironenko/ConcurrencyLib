@@ -41,7 +41,7 @@ ColumnVec<double> resolveViaIterations(const Matrix<T>& mtx, const ColumnVec<T> 
                     LOG_ERR << "Mismatching result (" << result.size() << ") and output (" << updated.size() << ") sizes";
                     throw std::logic_error("Wrong vector update size");
                 }
-                for (int64_t idx = 0; idx < updated.size(); ++idx) {
+                for (size_t idx = 0; idx < updated.size(); ++idx) {
                     result[idx] = updated[idx];
                 }
             })

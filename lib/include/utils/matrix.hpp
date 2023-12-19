@@ -113,7 +113,7 @@ public:
         return data_.at(idx);
     }
 
-    const int64_t size() const { return static_cast<int64_t>(data_.size()); }
+    int64_t size() const { return static_cast<int64_t>(data_.size()); }
 
 private:
     std::vector<T> data_;

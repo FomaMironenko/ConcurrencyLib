@@ -131,7 +131,7 @@ DEFINE_TEST(exception_in_get) {
     });
     producer.join();
     try {
-        int val = future.get();
+        future.get();
         FAIL();  // must be unreachable
     } catch (const std::exception& err) {
         ASSERT_EQ(err.what(), std::string("Producer error"));

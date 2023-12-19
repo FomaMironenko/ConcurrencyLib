@@ -52,12 +52,12 @@ template <class T>
 T binPow(T base, T pow) {
     if (pow == 0) {
         return 1;
-    } else if (pow % 2 == 0) {
+    }
+    if (pow % 2 == 0) {
         int tmp = binPow(base, pow / 2);
         return tmp * tmp;
-    } else {
-        return base * binPow(base, pow - 1);
     }
+    return base * binPow(base, pow - 1);
 }
 
 
