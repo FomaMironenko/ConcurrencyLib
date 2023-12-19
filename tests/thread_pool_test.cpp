@@ -54,7 +54,7 @@ T binPow(T base, T pow) {
         return 1;
     }
     if (pow % 2 == 0) {
-        int tmp = binPow(base, pow / 2);
+        T tmp = binPow(base, pow / 2);
         return tmp * tmp;
     }
     return base * binPow(base, pow - 1);
