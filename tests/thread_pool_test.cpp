@@ -193,7 +193,7 @@ DEFINE_TEST(map_reduce) {
             [](uint32_t val) { return binPow<uint32_t>(val, 3); }
         );
         mapped.push_back(std::move(async_res));
-        int32_t cube = iter * iter * iter;  // do not use std::pow to allow overflows
+        uint32_t cube = iter * iter * iter;  // do not use std::pow to allow overflows
         expected += cube * cube;
     }
     uint32_t reduced = 0;
