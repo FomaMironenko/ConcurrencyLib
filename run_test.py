@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import os
+import sys
 import shutil
 
 
@@ -39,6 +40,7 @@ if 'run_test.py' not in os.listdir(cwd):
     print_r('\nMake sure to run test in project root\n')
     exit(1)
 
+success = True
 for build in builds:
     # Go to project root
     os.chdir(cwd)
@@ -62,10 +64,12 @@ for build in builds:
     MAKE_COMMAND = 'make -j20'
     ret = os.system(CMAKE_COMMAND)
     if ret != 0:
+        success = False
         print_r('ERROR: unexpected cmake error\n\n')
         continue
     ret = os.system(MAKE_COMMAND)
     if ret != 0:
+        success = False
         print_r('ERROR: unexpected make error\n\n')
         continue
     
@@ -92,6 +96,11 @@ for build in builds:
             num_failed += 1
     result_msg = f'@@@@ {build["type"]} tests completed: SUCCESS {num_success}, FAILED {num_failed}\n\n'
     if num_failed > 0:
+        success = False
         print_r(result_msg)
     else:
         print_g(result_msg)
+
+if not success: 
+    sys.exit(os.EX_SOFTWARE)
+sys.exit(os.EX_OK)
