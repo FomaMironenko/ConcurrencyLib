@@ -3,6 +3,7 @@
 #include <chrono>
 #include <thread>
 #include <cmath>
+#include <cstdint>
 
 #include <vector>
 #include <map>

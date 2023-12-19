@@ -3,6 +3,7 @@
 #include <random>
 #include <cassert>
 #include <cmath>
+#include <cstdint>
 
 template <class T>
 class LightweightPRG {
