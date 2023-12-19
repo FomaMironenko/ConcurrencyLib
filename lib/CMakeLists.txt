@@ -9,3 +9,7 @@ add_library (
     "src/table.cpp"
     "src/thread_pool.cpp"
 )
+
+if (UNIX)
+    target_link_libraries( ConcurrencyLib pthread )
+endif()
