@@ -40,7 +40,7 @@ if (CMAKE_BUILD_TYPE MATCHES "^(Tsan|TsanWithUBsan)$")
 
     message(STATUS "Building with Thread Sanitizer enabled")
     SET (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread")
-    SET (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=thread")
+    # SET (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=thread")
 
 endif()
 
