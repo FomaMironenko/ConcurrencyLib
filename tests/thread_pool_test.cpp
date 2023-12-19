@@ -187,10 +187,10 @@ DEFINE_TEST(map_reduce) {
     constexpr uint32_t num_iters = 10'000;
     for (uint32_t iter = 0; iter < num_iters; ++iter) {
         auto async_res = call_async<uint32_t>(pool, 
-            std::pow<uint32_t>,
+            binPow<uint32_t>,
             iter, 2
         ).then<uint32_t>(
-            [](uint32_t val) { return val * val * val; }
+            [](uint32_t val) { return binPow<uint32_t>(val, 3); }
         );
         mapped.push_back(std::move(async_res));
         int32_t cube = iter * iter * iter;  // do not use std::pow to allow overflows
