@@ -70,7 +70,7 @@ for build in builds:
     ret = os.system(MAKE_COMMAND)
     if ret != 0:
         success = False
-        print_r('ERROR: unexpected make error\n\n')
+        print_r('ERROR: unexpected build error\n\n')
         continue
     
     # Find test files
