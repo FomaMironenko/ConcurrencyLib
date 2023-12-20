@@ -1,0 +1,32 @@
+name: Crossplatform builds
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+
+jobs:
+
+  build-ubuntu:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v3
+    - name: mkdir
+      run: mkdir build && cd build
+    - name: cmake
+      run: cmake ../
+    - name: make
+      run: make -j10
+
+
+  build-osX:
+    runs-on: macos-12
+    steps:
+    - name: mkdir
+      run: mkdir build && cd build
+    - name: cmake
+      run: cmake ../
+    - name: make
+      run: make -j10
