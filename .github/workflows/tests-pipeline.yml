@@ -7,11 +7,24 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build:
 
+  ubsan-build:
     runs-on: ubuntu-22.04
-
     steps:
     - uses: actions/checkout@v3
     - name: run-tests
-      run: python3 ./run_test.py
+      run: python3 ./run_test.py ubsan
+
+  asan-build:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v3
+    - name: run-tests
+      run: python3 ./run_test.py asan
+
+  tsan-build:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v3
+    - name: run-tests
+      run: python3 ./run_test.py tsan
