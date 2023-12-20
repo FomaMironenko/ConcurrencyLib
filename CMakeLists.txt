@@ -40,7 +40,7 @@ if (CMAKE_BUILD_TYPE MATCHES "^(Tsan|TsanWithUBsan)$")
 
     message(STATUS "Building with Thread Sanitizer enabled")
     SET (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread")
-    # SET (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=thread")
+    SET (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=thread")
 
 endif()
 
@@ -49,8 +49,8 @@ endif()
 if (CMAKE_BUILD_TYPE MATCHES "^(Asan|AsanWithUBsan)$")
 
     message(STATUS "Building with Address Sanitizer enabled")
-    SET (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fsanitize-recover=address")
-    SET (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address -fsanitize-recover=address")
+    SET (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
+    SET (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address")
 
     if (APPLE)
         message(WARNING "Leak sanitizer is not supported by Darwin architecture")
