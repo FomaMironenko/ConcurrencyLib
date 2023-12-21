@@ -12,6 +12,13 @@
 
 template <class T>
 class AsyncResult {
+
+friend class ThreadPool;
+template <class U> friend class AsyncResult;
+template <class U> friend class GroupAll;
+template <class Ret, class Fun, class ...Args>
+friend inline AsyncResult<Ret> call_async(ThreadPool& pool, Fun&& fun, Args &&...args);
+
 private:
     AsyncResult(ThreadPool& pool, Future<T> fut)
         : fut_(std::move(fut))
@@ -26,30 +33,39 @@ public:
     // Create a ready-to-use AsyncResult filled with error
     static AsyncResult instantFail(ThreadPool& pool, std::exception_ptr error);
 
-    // Synchronously get the result
+    // Synchronously wait for the result to be produced.
+    // Does not invalidate the object.
+    void wait();
+
+    // Synchronously get the result.
+    // Invalidates the object.
     T get();
 
-    // Asynchronously unwrap nested AsyncResult
+    // Asynchronously unwrap nested AsyncResult.
+    // Can be called only with AsyncResult< AsyncResult<...> > types.
+    // Invalidates the object.
     T flatten();
 
-    // Continue task execution in parent ThreadPool
+    // Continue task execution in parent ThreadPool.
+    // Invalidates the object.
     template <class Ret>
     AsyncResult<Ret> then(std::function<Ret(T)> func);
 
 private:
     Future<T> fut_;
     ThreadPool* parent_pool_;
+};
+
+
+template <>
+class AsyncResult<void> {
 
 friend class ThreadPool;
 template <class U> friend class AsyncResult;
 template <class U> friend class GroupAll;
 template <class Ret, class Fun, class ...Args>
 friend inline AsyncResult<Ret> call_async(ThreadPool& pool, Fun&& fun, Args &&...args);
-};
 
-
-template <>
-class AsyncResult<void> {
 private:
     AsyncResult(ThreadPool& pool, Future<Void> fut)
         : fut_(std::move(fut))
@@ -57,31 +73,65 @@ private:
     {    }
 
 public:
-    void get() { fut_.get(); }
+    // Create a ready-to-use AsyncResult<void>
+    static AsyncResult instant(ThreadPool& pool);
 
+    // Create a ready-to-use AsyncResult filled with error
+    static AsyncResult instantFail(ThreadPool& pool, std::exception_ptr error);
+
+    // Synchronously wait for the result to be produced.
+    // Does not invalidate the object.
+    void wait();
+
+    // Synchronously wait for result.
+    // Invalidates the object.
+    void get();
+
+    // Continue task execution in parent ThreadPool.
+    // Invalidates the object.
     template <class Ret>
     AsyncResult<Ret> then(std::function<Ret()> func);
 
 private:
     Future<Void> fut_;
     ThreadPool* parent_pool_;
-
-friend class ThreadPool;
-template <class U> friend class AsyncResult;
-template <class U> friend class GroupAll;
-template <class Ret, class Fun, class ...Args>
-friend inline AsyncResult<Ret> call_async(ThreadPool& pool, Fun&& fun, Args &&...args);
 };
 
+
+// ==================================================== //
+// ==================== WAIT & GET ==================== //
+// ==================================================== //
+
+template <class T>
+void AsyncResult<T>::wait() {
+    fut_.wait();
+}
+
+void AsyncResult<void>::wait() {
+    fut_.wait();
+}
 
 template <class T>
 T AsyncResult<T>::get() {
     return fut_.get();
 }
 
+void AsyncResult<void>::get() {
+    fut_.get();
+}
+
+
+// ========================================================= //
+// ==================== INSTANT RESULTS ==================== //
+// ========================================================= //
+
 template <class T>
 AsyncResult<T> AsyncResult<T>::instant(ThreadPool& pool, T value) {
     return AsyncResult<T>{pool, Future<T>::instantValue(std::move(value))};
+}
+
+AsyncResult<void> AsyncResult<void>::instant(ThreadPool& pool) {
+    return AsyncResult<void>{pool, Future<Void>::instantValue(Void{})};
 }
 
 template <class T>
@@ -89,6 +139,14 @@ AsyncResult<T> AsyncResult<T>::instantFail(ThreadPool& pool, std::exception_ptr 
     return AsyncResult<T>{pool, Future<T>::instantError(std::move(error))};
 }
 
+AsyncResult<void> AsyncResult<void>::instantFail(ThreadPool& pool, std::exception_ptr error) {
+    return AsyncResult<void>{pool, Future<Void>::instantError(std::move(error))};
+}
+
+
+// ============================================== //
+// ==================== THEN ==================== //
+// ============================================== //
 
 template <class T>
 template <class Ret>
@@ -129,6 +187,10 @@ AsyncResult<Ret> AsyncResult<void>::then(std::function<Ret()> func) {
     return {std::move(future), *parent_pool_};
 }
 
+
+// ================================================= //
+// ==================== FLATTEN ==================== //
+// ================================================= //
 
 template <class T>
 T AsyncResult<T>::flatten() {

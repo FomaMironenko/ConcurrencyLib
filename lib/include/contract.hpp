@@ -47,11 +47,11 @@ public:
     // Create a ready-to-use Future filled with an exception.
     static Future instantError(std::exception_ptr error);
 
-    // Wait for the Promise to be resolved and return value. Invalidates the Future.
-    T get();
-
     // Wait for the Promise to be resolved, but does not invalidate the Future.
     void wait();
+
+    // Wait for the Promise to be resolved and return value. Invalidates the Future.
+    T get();
 
     // Subscribe to the result. Ann appropriate callback will be executed instantly
     // by this thread in case a result has been produced already, and by the producer
