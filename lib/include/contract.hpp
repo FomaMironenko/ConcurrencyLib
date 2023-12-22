@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <functional>
 
+#include "../private/subscription.hpp"
 #include "../private/shared_state.hpp"
 
 
@@ -53,14 +54,12 @@ public:
     // Wait for the Promise to be resolved and return value. Invalidates the Future.
     T get();
 
-    // Subscribe to the result. Ann appropriate callback will be executed instantly
+    // Subscribe to the result. An appropriate callback will be executed instantly
     // by this thread in case a result has been produced already, and by the producer
     // thread when calling setValue / setError on Promise object otherwise.
     // Invalidates the Future.
-    void subscribe(
-        std::function<void(T)> val_callback,
-        std::function<void(std::exception_ptr)> err_callback = nullptr
-    );
+    void subscribe(ValueCallback<T> on_value, ErrorCallback on_error = nullptr);
+    void subscribe(SubscriptionPtr<T> subscription);
 
 private:
     std::shared_ptr<details::SharedState<T>> state_;
@@ -172,18 +171,19 @@ void Future<T>::wait() {
 }
 
 template <class T>
-void Future<T>::subscribe(
-        std::function<void(T)> val_callback,
-        std::function<void(std::exception_ptr)> err_callback
-) {
+void Future<T>::subscribe(ValueCallback<T> on_value, ErrorCallback on_error) {
+    subscribe(std::make_unique<SimpleSubscription<T>>(std::move(on_value), std::move(on_error)));
+}
+
+template <class T>
+void Future<T>::subscribe(SubscriptionPtr<T> subscription) {
     auto state = std::move(state_);
     if (!state) {
         throw std::runtime_error("Trying to subscribe to spoiled state");
     }
     // Guard will be destructed before state. Thus no use after free is available.
     std::unique_lock guard(state->mtx_);
-    state->val_callback_ = std::move(val_callback);
-    state->err_callback_ = std::move(err_callback);
+    state->subscription_ = std::move(subscription);
     if (state->produced_) {
         // Scenario 1: state has already been produced and the callback will be executed in current thread
         // this is the only owning thread, so guard causes no contention
