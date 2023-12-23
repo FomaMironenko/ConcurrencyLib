@@ -45,6 +45,18 @@ DEFINE_TEST(subscription_just_works) {
         [](int result) { return std::to_string(result); }
     );
     ASSERT_EQ(fut_string.get(), "10");
+
+    int flag = 0;
+    call_async<void>(pool,
+        [&flag]() { flag += 1; }
+    ).then<void>(
+        [&flag]() { flag += 1; }
+    ).then<int>(
+        []() { return 42; }
+    ).then<void>(
+        [&flag](int val) { flag += val; }
+    ).wait();
+    ASSERT_EQ(flag, 1 + 1 + 42);
 }
 
 

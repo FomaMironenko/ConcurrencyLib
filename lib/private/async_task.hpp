@@ -2,9 +2,9 @@
 
 #include <functional>
 
+#include "type_traits.hpp"
 #include "thread_pool_task_base.hpp"
 #include "contract.hpp"
-#include "void.hpp"
 
 
 namespace details {
@@ -53,5 +53,13 @@ private:
     std::function<void()> func_;
     Promise<Void> promise_;
 };
+
+
+template <class T>
+inline std::unique_ptr<AsyncTask<T> > make_async_task(std::function<T()>&& func,
+                                                      Promise<PhysicalType<T> > promise
+) {
+    return std::make_unique<AsyncTask<T> >(std::move(func), std::move(promise));
+}
 
 }  // namespace details
