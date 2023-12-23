@@ -128,6 +128,32 @@ DEFINE_TEST(flatten_is_async) {
 }
 
 
+DEFINE_TEST(flatten_void) {
+    ThreadPool pool(2);
+    int value = 0;
+    auto fut = call_async<void>(pool,
+        [&value]() { ++value; }
+    ).then<AsyncResult<void>>(
+        [&value, &pool]() {
+            ++value;
+            return call_async<int>(pool,
+                []() { return 1; }
+            ).then<void>(
+                [&value](int val) { value += val; }
+            );
+        }
+    );
+    // .then<AsyncResult<void>>(
+    //     [&value] (AsyncResult<void> async_void) {
+    //         return async_void.then<void>([&value]() { ++value; });
+    //     }
+    // );
+    auto fut_void = fut.flatten();
+    fut_void.wait();
+    ASSERT_EQ(value, 3);
+}
+
+
 DEFINE_TEST(flatten_error) {
     ThreadPool pool(2);
     // Error in the first level
@@ -271,6 +297,7 @@ int main() {
     RUN_TEST(just_works, "Just works");
     RUN_TEST(subscription_just_works, "Subscription just works")
     RUN_TEST(flatten_is_async, "Flatten is async")
+    RUN_TEST(flatten_void, "Flatten works with void")
     RUN_TEST(make_async_just_works, "make_async just works")
     RUN_TEST(subscription_error, "Error in subscription")
     RUN_TEST(flatten_error, "Error in flatten")

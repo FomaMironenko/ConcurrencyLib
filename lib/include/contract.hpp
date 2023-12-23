@@ -69,6 +69,10 @@ friend Contract<U> contract();
 };
 
 
+// ================================================== //
+// ==================== CONTRACT ==================== //
+// ================================================== //
+
 template <class T>
 struct Contract {
     Promise<T> producer;
@@ -81,6 +85,28 @@ Contract<T> contract() {
     return {Promise<T>{state}, Future<T>{state}};
 }
 
+
+// ============================================================== //
+// ==================== PROMISE SUBSCRIPTION ==================== //
+// ============================================================== //
+
+template <class T>
+class ProducerSubscription : public ISubscription<T> {
+public:
+    ProducerSubscription(Promise<T> promise)
+        : promise_(std::move(promise)) {   }
+
+    virtual void resolveValue(T value) override {
+        promise_.setValue(std::move(value));
+    }
+
+    virtual void resolveError(std::exception_ptr err) override {
+        promise_.setError(err);
+    }
+
+private:
+    Promise<T> promise_;
+};
 
 
 // ======================================================== //

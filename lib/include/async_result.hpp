@@ -16,6 +16,7 @@ class AsyncResult {
 friend class ThreadPool;
 template <class U> friend class AsyncResult;
 template <class U> friend class GroupAll;
+template <class U> friend class FlattenSubscription;
 template <class Ret, class Fun, class ...Args>
 friend inline AsyncResult<Ret> call_async(ThreadPool& pool, Fun&& fun, Args &&...args);
 
@@ -63,6 +64,7 @@ class AsyncResult<void> {
 friend class ThreadPool;
 template <class U> friend class AsyncResult;
 template <class U> friend class GroupAll;
+template <class U> friend class FlattenSubscription;
 template <class Ret, class Fun, class ...Args>
 friend inline AsyncResult<Ret> call_async(ThreadPool& pool, Fun&& fun, Args &&...args);
 
@@ -203,28 +205,34 @@ AsyncResult<Ret> AsyncResult<void>::then(std::function<Ret()> func) {
 // ==================== FLATTEN ==================== //
 // ================================================= //
 
+template <class Ret>
+class FlattenSubscription : public ISubscription<AsyncResult<Ret> > {
+public:
+    FlattenSubscription(Promise<PhysicalType<Ret> > promise)
+        : promise_(std::move(promise))
+    {   }
+
+    void resolveValue(AsyncResult<Ret> async_val) override {
+        async_val.fut_.subscribe(
+            std::make_unique<ProducerSubscription<PhysicalType<Ret> > >(std::move(promise_))
+        );
+    }
+
+    void resolveError(std::exception_ptr err) override {
+        promise_.setError(err);
+    }
+
+private:
+    Promise<PhysicalType<Ret> > promise_;
+};
+
 template <class T>
 T AsyncResult<T>::flatten() {
     // Cannot be compiled for non AsyncResult type T
     static_assert(is_async_result<T>::value, "flatten cannot be used with non nested AsyncResults");
     using Ret = typename async_type<T>::type;
     // Utilize duck typing
-    auto [promise, future] = contract<Ret>();
-    auto promise_box = std::make_shared<details::PromiseBox<Ret>>(std::move(promise));
-    fut_.subscribe(
-        [promise_box] (AsyncResult<Ret> child_res) {
-            child_res.fut_.subscribe(
-                [promise_box](Ret ret) {
-                    promise_box->get().setValue(std::move(ret));
-                },
-                [promise_box](std::exception_ptr err) {
-                    promise_box->get().setError(err);
-                }
-            );
-        },
-        [promise_box] (std::exception_ptr err) {
-            promise_box->get().setError(err);
-        }
-    );
+    auto [promise, future] = contract<PhysicalType<Ret> >();
+    fut_.subscribe( std::make_unique<FlattenSubscription<Ret> >(std::move(promise)) );
     return AsyncResult<Ret>{*parent_pool_, std::move(future)};
 }

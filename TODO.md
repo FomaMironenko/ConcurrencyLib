@@ -9,3 +9,5 @@
 - [ ] Enable std::function submit to ThreadPool and use this interface in AsyncResult impl
 - [ ] Add continue and wait methods to AsyncResult
 - [ ] Detect non-fatal sanitizer errors
+- [ ] Inherit ThenSubscription from ProducerSubscription
+- [ ] Fix flatten_void test
