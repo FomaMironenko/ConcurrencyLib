@@ -160,13 +160,13 @@ AsyncResult<void> AsyncResult<void>::instantFail(ThreadPool& pool, std::exceptio
 // ============================================== //
 
 template <class Ret, class Arg>
-class ThenSubscription : public ISubscription<PhysicalType<Arg> > {
+class ThenSubscription : public PipeSubscription<Ret, Arg> {
 public:
     ThenSubscription(FunctionType<Ret, Arg> func,
                      Promise<PhysicalType<Ret> > promise,
                      ThreadPool * continuation_pool)
-        : func_(std::move(func))
-        , promise_(std::move(promise))
+        : PipeSubscription<Ret, Arg> (std::move(promise))
+        , func_(std::move(func))
         , continuation_pool_(continuation_pool)
     {   }
 
@@ -177,18 +177,14 @@ public:
             continuation_pool_->submit(std::move(pool_task));
         } else {
             ThreadPool::Task pool_task =
-                details::make_bound_async_task<Ret>(std::move(func_), std::move(value), std::move(promise_));
+                details::make_bound_async_task<Ret, Arg>(std::move(func_), std::move(value), std::move(promise_));
             continuation_pool_->submit(std::move(pool_task));
         }
     }
 
-    void resolveError(std::exception_ptr err) override {
-        promise_.setError(err);
-    }
-
 private:
+    using PipeSubscription<Ret, Arg>::promise_;
     FunctionType<Ret, Arg> func_;
-    Promise<PhysicalType<Ret> > promise_;
     ThreadPool * continuation_pool_;
 };
 
@@ -215,24 +211,20 @@ AsyncResult<Ret> AsyncResult<void>::then(std::function<Ret()> func) {
 // ================================================= //
 
 template <class Ret>
-class FlattenSubscription : public ISubscription<AsyncResult<Ret> > {
+class FlattenSubscription : public PipeSubscription<Ret, AsyncResult<Ret>> {
 public:
     FlattenSubscription(Promise<PhysicalType<Ret> > promise)
-        : promise_(std::move(promise))
+        : PipeSubscription<Ret, AsyncResult<Ret>>(std::move(promise))
     {   }
 
     void resolveValue(AsyncResult<Ret> async_val) override {
         async_val.fut_.subscribe(
-            std::make_unique<ProducerSubscription<PhysicalType<Ret> > >(std::move(promise_))
+            std::make_unique<ForwardSubscription<Ret> >(std::move(promise_))
         );
     }
 
-    void resolveError(std::exception_ptr err) override {
-        promise_.setError(err);
-    }
-
 private:
-    Promise<PhysicalType<Ret> > promise_;
+    using PipeSubscription<Ret, AsyncResult<Ret>>::promise_;
 };
 
 template <class T>

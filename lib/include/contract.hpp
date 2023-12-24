@@ -8,6 +8,7 @@
 
 #include "../private/subscription.hpp"
 #include "../private/shared_state.hpp"
+#include "../private/type_traits.hpp"
 
 
 template <class T>
@@ -90,22 +91,29 @@ Contract<T> contract() {
 // ==================== PROMISE SUBSCRIPTION ==================== //
 // ============================================================== //
 
-template <class T>
-class ProducerSubscription : public ISubscription<T> {
+template <class Ret, class Arg>
+class PipeSubscription : public ISubscription<PhysicalType<Arg> > {
 public:
-    ProducerSubscription(Promise<T> promise)
+    PipeSubscription(Promise<PhysicalType<Ret> > promise)
         : promise_(std::move(promise)) {   }
-
-    virtual void resolveValue(T value) override {
-        promise_.setValue(std::move(value));
-    }
 
     virtual void resolveError(std::exception_ptr err) override {
         promise_.setError(err);
     }
 
-private:
-    Promise<T> promise_;
+protected:
+    Promise<PhysicalType<Ret> > promise_;
+};
+
+template <class T>
+class ForwardSubscription : public PipeSubscription<T, T> {
+public:
+    ForwardSubscription(Promise<PhysicalType<T>> promise)
+        : PipeSubscription<T, T>(std::move(promise)) {  }
+
+    virtual void resolveValue(PhysicalType<T> value) override {
+        PipeSubscription<T, T>::promise_.setValue(std::move(value));
+    }
 };
 
 
