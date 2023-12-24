@@ -171,15 +171,15 @@ public:
     {   }
 
     void resolveValue([[maybe_unused]] PhysicalType<Arg> value) override {
-        std::function<Ret()> task;
         if constexpr (std::is_same_v<Arg, void>) {
-            task = std::move(func_);
+            ThreadPool::Task pool_task =
+                details::make_async_task<Ret>(std::move(func_), std::move(promise_));
+            continuation_pool_->submit(std::move(pool_task));
         } else {
-            task = std::bind(std::move(func_), std::move(value));
+            ThreadPool::Task pool_task =
+                details::make_bound_async_task<Ret>(std::move(func_), std::move(value), std::move(promise_));
+            continuation_pool_->submit(std::move(pool_task));
         }
-        ThreadPool::Task pool_task =
-            details::make_async_task<Ret>(std::move(task), std::move(promise_));
-        continuation_pool_->submit(std::move(pool_task));
     }
 
     void resolveError(std::exception_ptr err) override {

@@ -1,9 +1,12 @@
 #include <iostream>
+#include <iomanip>
 #include <memory>
 #include <chrono>
 #include <thread>
 #include <cmath>
 #include <cstdint>
+#include <string>
+#include <sstream>
 
 #include <unordered_map>
 #include <vector>
@@ -57,6 +60,29 @@ DEFINE_TEST(subscription_just_works) {
         [&flag](int val) { flag += val; }
     ).wait();
     ASSERT_EQ(flag, 1 + 1 + 42);
+}
+
+
+DEFINE_TEST(moveonly_arguments_in_subscription) {
+    ThreadPool pool(2);
+    auto fut_string = call_async<int>(pool,
+        []() { return 42; }
+    ).then<std::unique_ptr<int> >(
+        [](int result) { return std::make_unique<int>(result); }
+    ).then<std::unique_ptr<double> >(
+        [](auto result) {
+            auto double_ptr = std::make_unique<double>(*result);
+            *double_ptr += 0.5;
+            return double_ptr;
+        }
+    ).then<std::string>(
+        [](auto result) {
+            std::stringstream ss;
+            ss << std::fixed << std::setprecision(2) << *result;
+            return std::string(ss.str());
+        }
+    );
+    ASSERT_EQ(fut_string.get(), "42.50");
 }
 
 
@@ -142,15 +168,14 @@ DEFINE_TEST(flatten_void) {
                 [&value](int val) { value += val; }
             );
         }
+    ).then<AsyncResult<void>>(
+        [&value] (AsyncResult<void> async_void) {
+            return async_void.then<void>([&value]() { ++value; });
+        }
     );
-    // .then<AsyncResult<void>>(
-    //     [&value] (AsyncResult<void> async_void) {
-    //         return async_void.then<void>([&value]() { ++value; });
-    //     }
-    // );
     auto fut_void = fut.flatten();
     fut_void.wait();
-    ASSERT_EQ(value, 3);
+    ASSERT_EQ(value, 4);
 }
 
 
@@ -296,6 +321,7 @@ DEFINE_TEST(test_then_starvation) {
 int main() {
     RUN_TEST(just_works, "Just works");
     RUN_TEST(subscription_just_works, "Subscription just works")
+    RUN_TEST(moveonly_arguments_in_subscription, "Subscription with moveonly arguments")
     RUN_TEST(flatten_is_async, "Flatten is async")
     RUN_TEST(flatten_void, "Flatten works with void")
     RUN_TEST(make_async_just_works, "make_async just works")
