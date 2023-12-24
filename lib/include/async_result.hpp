@@ -27,6 +27,10 @@ private:
     {    }
 
 public:
+    AsyncResult(const AsyncResult&) = delete;
+    AsyncResult(AsyncResult&&) = default;
+    AsyncResult& operator=(AsyncResult&&) = default;
+    AsyncResult& operator=(const AsyncResult&) = delete;
 
     // Create a ready-to-use AsyncResult filled with value
     static AsyncResult instant(ThreadPool& pool, T value);
@@ -75,6 +79,11 @@ private:
     {    }
 
 public:
+    AsyncResult(const AsyncResult&) = delete;
+    AsyncResult(AsyncResult&&) = default;
+    AsyncResult& operator=(AsyncResult&&) = default;
+    AsyncResult& operator=(const AsyncResult&) = delete;
+
     // Create a ready-to-use AsyncResult<void>
     static AsyncResult instant(ThreadPool& pool);
 
@@ -161,7 +170,7 @@ public:
         , continuation_pool_(continuation_pool)
     {   }
 
-    void resolveValue(PhysicalType<Arg> value) override {
+    void resolveValue([[maybe_unused]] PhysicalType<Arg> value) override {
         std::function<Ret()> task;
         if constexpr (std::is_same_v<Arg, void>) {
             task = std::move(func_);
