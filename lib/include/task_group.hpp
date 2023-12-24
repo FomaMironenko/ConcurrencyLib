@@ -10,6 +10,10 @@
 #include "async_result.hpp"
 
 
+// =============================================== //
+// ==================== UTILS ==================== //
+// =============================================== //
+
 namespace details {
 
     template <class T>
@@ -43,8 +47,15 @@ namespace details {
 }  // namespace details
 
 
+// ================================================== //
+// ==================== GroupAll ==================== //
+// ================================================== //
+
 template <class T>
 class GroupAll {
+
+template <class U> friend class JoinSubscription;
+
     using ContractType = typename std::conditional_t<
         std::is_same_v<T, void>,
         Void, T
@@ -71,35 +82,56 @@ private:
 };
 
 
+// ============================================== //
+// ==================== JOIN ==================== //
+// ============================================== //
+
+template <class T>
+class JoinSubscription : public ISubscription<T> {
+public:
+    JoinSubscription(std::shared_ptr<details::GroupState<T>> state)
+        : state_(state)
+    {
+        result_ = std::make_shared<details::ResultBox<T>>();
+        state_->results.push_back(result_);
+    }
+
+    void resolveValue(T value) override {
+        result_->val = std::move(value);
+        resolve();
+    }
+
+    void resolveError(std::exception_ptr err) override {
+        result_->err = std::move(err);
+        resolve();
+    }
+
+private:
+    void resolve() {
+        state_->num_ready.fetch_add(1);
+        if (state_->all_submitted.load() &&
+            state_->num_ready.load() == state_->num_submitted.load() &&
+            !state_->fired.exchange(true)
+        ) {
+            GroupAll<T>::onAllReady(state_->promise, std::move(state_->results));
+        }
+    }
+
+private:
+    std::shared_ptr<details::GroupState<T>> state_;
+    std::shared_ptr<details::ResultBox<T>> result_;
+};
+
 template <class T>
 void GroupAll<T>::join(AsyncResult<T> res) {
     state_->num_submitted.fetch_add(1);
-    auto res_box = std::make_shared<details::ResultBox<T>>();
-    state_->results.push_back(res_box);
-    auto on_value = [state = state_, res_box = res_box] (T val) {
-        res_box->val = std::move(val);
-        state->num_ready.fetch_add(1);
-        if (state->all_submitted.load() &&
-            state->num_ready.load() == state->num_submitted.load() &&
-            !state->fired.exchange(true)
-        ) {
-            onAllReady(state->promise, std::move(state->results));
-        }
-    };
-    auto on_error = [state = state_, res_box = res_box] (std::exception_ptr err) {
-        res_box->err = std::move(err);
-        state->num_ready.fetch_add(1);
-        if (state->all_submitted.load() &&
-            state->num_ready.load() == state->num_submitted.load() &&
-            !state->fired.exchange(true)
-        ) {
-            onAllReady(state->promise, std::move(state->results));
-        }
-    };
-    Future<T> fut = std::move(res.fut_);
-    fut.subscribe(on_value, on_error);
+    res.fut_.subscribe(std::make_unique<JoinSubscription<T>>(state_));
 }
 
+
+// ============================================================== //
+// ==================== MERGE & ON ALL READY ==================== //
+// ============================================================== //
 
 template <class T>
 AsyncResult<std::vector<T>> GroupAll<T>::merge(ThreadPool& pool) {
