@@ -7,7 +7,7 @@
 - [x] Do not duplicate then logic in flatten
 - [ ] Safely handle references to ThreadPool
 - [ ] Enable std::function submit to ThreadPool and use this interface in AsyncResult impl
-- [ ] Add continue and wait methods to AsyncResult
+- [ ] Add `wait`, `just_then`, `in` and `to_std_future` methods to AsyncResult
 - [ ] Detect non-fatal sanitizer errors
 - [x] Inherit ThenSubscription from ProducerSubscription
 - [x] Fix flatten_void test

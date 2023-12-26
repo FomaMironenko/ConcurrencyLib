@@ -23,7 +23,7 @@ using namespace std::chrono_literals;
 
 DEFINE_TEST(just_works) {
     ThreadPool pool(4);
-    auto fut_bool = call_async<bool>(pool, [](){return true; });
+    auto fut_bool = call_async<bool>(pool, [](){ return true; });
     auto fut_int = call_async<int>(pool, []() { return 42; });
     auto fut_double = call_async<double>(pool, []() { return 3.14; });
     auto fut_string = call_async<std::string>(pool, []() { return "string"; });
@@ -31,6 +31,26 @@ DEFINE_TEST(just_works) {
     ASSERT_EQ(fut_int.get(), 42);
     ASSERT_EQ(fut_double.get(), 3.14);
     ASSERT_EQ(fut_string.get(), "string");
+}
+
+
+template <class T>
+struct WorstType {
+    WorstType() = delete;
+    explicit WorstType(T val) : val(val) {    }
+
+    WorstType(const WorstType&) = delete;
+    WorstType(WorstType&&) = default;
+    WorstType& operator=(const WorstType&) = delete;
+    WorstType& operator=(WorstType&&) = default;
+
+    T val;
+};
+
+DEFINE_TEST(worst_type) {
+    ThreadPool pool(1);
+    auto fut = call_async<WorstType<int>>(pool, [](){ return WorstType<int>(42); });
+    ASSERT_EQ(fut.get().val, 42);
 }
 
 
@@ -67,18 +87,18 @@ DEFINE_TEST(moveonly_arguments_in_subscription) {
     ThreadPool pool(2);
     auto fut_string = call_async<int>(pool,
         []() { return 42; }
-    ).then<std::unique_ptr<int> >(
-        [](int result) { return std::make_unique<int>(result); }
-    ).then<std::unique_ptr<double> >(
+    ).then<WorstType<int>>(
+        [](int result) { return WorstType<int>(result); }
+    ).then<WorstType<double>>(
         [](auto result) {
-            auto double_ptr = std::make_unique<double>(*result);
-            *double_ptr += 0.5;
-            return double_ptr;
+            auto double_res = WorstType<double>(result.val);
+            double_res.val += 0.5;
+            return double_res;
         }
     ).then<std::string>(
         [](auto result) {
             std::stringstream ss;
-            ss << std::fixed << std::setprecision(2) << *result;
+            ss << std::fixed << std::setprecision(2) << result.val;
             return std::string(ss.str());
         }
     );
@@ -319,7 +339,8 @@ DEFINE_TEST(test_then_starvation) {
 
 
 int main() {
-    RUN_TEST(just_works, "Just works");
+    RUN_TEST(just_works, "Just works")
+    RUN_TEST(worst_type, "Async call with moveonly & non-default-constructible type")
     RUN_TEST(subscription_just_works, "Subscription just works")
     RUN_TEST(moveonly_arguments_in_subscription, "Subscription with moveonly arguments")
     RUN_TEST(flatten_is_async, "Flatten is async")
