@@ -22,8 +22,11 @@ using namespace std::chrono_literals;
 DEFINE_TEST(just_works) {
     ThreadPool pool(4);
     GroupAll<int> tg;
+    // Order of values in result only depends on the order of join and
+    // does not depend on when the value was physically produced.
     tg.join(call_async<int>(pool, []() {
-        std::this_thread::sleep_for(10ms);
+        // Even though it sleeps, 1 must be the first one
+        std::this_thread::sleep_for(50ms);
         return 1;
     }));
     tg.join(call_async<int>(pool, []() { return 2; }));
@@ -32,6 +35,47 @@ DEFINE_TEST(just_works) {
     auto results = tg.merge(pool).get();
     std::vector<int> expected = {1, 2, 3, 4};
     ASSERT_EQ(results, expected);
+}
+
+
+struct WorstType {
+    WorstType() = delete;
+    explicit WorstType(int val) : val(val) {    }
+
+    WorstType(const WorstType&) = delete;
+    WorstType(WorstType&&) = default;
+    WorstType& operator=(const WorstType&) = delete;
+    WorstType& operator=(WorstType&&) = default;
+
+    int val;
+};
+
+DEFINE_TEST(worst_type) {
+    ThreadPool pool(1);
+    GroupAll<WorstType> tg;
+    auto async_make_unique = make_async(pool, [](int val) { return WorstType(val); });
+    tg.join(async_make_unique(21));
+    tg.join(async_make_unique(42));
+    auto results = tg.merge(pool).get();
+    ASSERT_EQ(results.size(), 2u);
+    ASSERT_EQ(results[0].val, 21);
+    ASSERT_EQ(results[1].val, 42);
+}
+
+
+DEFINE_TEST(void_group_all) {
+    ThreadPool pool(4);
+    GroupAll<void> tg;
+    auto increment = make_async(pool, [](std::atomic<int>& state) { state.fetch_add(1); });
+
+    std::atomic<int> state { 0 };
+    constexpr int NUM_ITERS = 100;
+    for (int i = 0; i < NUM_ITERS; ++i) {
+        tg.join( increment(std::ref(state)) );
+    }
+    AsyncResult<void> all = tg.merge(pool);
+    all.wait();
+    ASSERT_EQ(state.load(), NUM_ITERS);
 }
 
 
@@ -164,6 +208,8 @@ DEFINE_TEST(perfect_parallelization) {
 
 int main() {
     RUN_TEST(just_works, "GroupAll just works");
+    RUN_TEST(worst_type, "GroupAll with moveonly & non-default-constructible type")
+    RUN_TEST(void_group_all, "GroupAll<void> just works");
     RUN_TEST(continuation, "Continuation");
     RUN_TEST(finish_before_merge, "Finish before merge");
     RUN_TEST(finish_after_merge, "Finish after merge");

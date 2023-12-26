@@ -19,6 +19,27 @@ template <class T> struct Contract;
 
 namespace details {
 
+
+// ================================================ //
+// ==================== RESULT ==================== //
+// ================================================ //
+
+template <class T>
+struct Result {
+    std::optional<T> val = std::nullopt;
+    std::exception_ptr err = nullptr;
+};
+
+template <>
+struct Result<void> {
+    std::exception_ptr err = nullptr;
+};
+
+
+// ====================================================== //
+// ==================== SHARED STATE ==================== //
+// ====================================================== //
+
 template <class T>
 struct SharedState {
 

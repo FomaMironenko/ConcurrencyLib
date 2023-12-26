@@ -39,6 +39,7 @@ private:
     Future(std::shared_ptr<details::SharedState<T>> state) : state_(std::move(state)) {    }
 
 public:
+    Future() = default;
     Future(const Future&) = delete;
     Future(Future&&) = default;
     Future& operator=(const Future&) = delete;

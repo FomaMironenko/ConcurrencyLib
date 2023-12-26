@@ -37,16 +37,17 @@ std::pair<Iterator, Iterator> split(Iterator begin, Iterator end) {
 }
 
 template <class Iterator>
-AsyncResult<Void> divideAndSort(Iterator begin, Iterator end, ThreadPool& pool) {
+AsyncResult<void> divideAndSort(Iterator begin, Iterator end, ThreadPool& pool) {
     if (std::distance(begin, end) <= 1) {
-        return AsyncResult<Void>::instant(pool, {});
+        return AsyncResult<void>::instant(pool);
     }
-    return call_async<std::pair<Iterator, Iterator>>(pool, split<Iterator>, begin, end)
-        .template then<AsyncResult<Void>>([begin, end, &pool](std::pair<Iterator, Iterator> middle) {
-            GroupAll<Void> sort_halves;
+    return call_async<std::pair<Iterator, Iterator>>(pool,
+            split<Iterator>, begin, end
+        ).template then<AsyncResult<void>>([begin, end, &pool](std::pair<Iterator, Iterator> middle) {
+            GroupAll<void> sort_halves;
             sort_halves.join(divideAndSort(begin, middle.first, pool));
             sort_halves.join(divideAndSort(middle.second, end, pool));
-            return sort_halves.merge(pool).then<Void>([](std::vector<Void>){ return Void{}; });
+            return sort_halves.merge(pool);
         }).flatten();
 }
 
