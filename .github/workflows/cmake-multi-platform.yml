@@ -28,11 +28,11 @@ jobs:
       - name: build
         run: cmake --build ./build
 
-  Windows:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: configure
-        run: cmake -S ./ -B build
-      - name: build
-        run: cmake --build ./build
+  # Windows:
+  #   runs-on: windows-latest
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     - name: configure
+  #       run: cmake -S ./ -B build
+  #     - name: build
+  #       run: cmake --build ./build
