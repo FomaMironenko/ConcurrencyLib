@@ -98,7 +98,7 @@ public:
     PipeSubscription(Promise<PhysicalType<Ret> > promise)
         : promise_(std::move(promise)) {   }
 
-    virtual void resolveError(std::exception_ptr err) override {
+    virtual void resolveError(std::exception_ptr err, ResolvedBy) override {
         promise_.setError(err);
     }
 
@@ -112,7 +112,7 @@ public:
     ForwardSubscription(Promise<PhysicalType<T>> promise)
         : PipeSubscription<T, T>(std::move(promise)) {  }
 
-    virtual void resolveValue(PhysicalType<T> value) override {
+    virtual void resolveValue(PhysicalType<T> value, ResolvedBy) override {
         PipeSubscription<T, T>::promise_.setValue(std::move(value));
     }
 };
@@ -133,7 +133,7 @@ void Promise<T>::setValue(T value) {
     assert(!state->produced_);
     state->value_ = std::move(value);
     if (state->subscribed_) {
-        state->resolveSubscription();
+        state->resolveSubscription(ResolvedBy::kProducer);
     } else {
         state->produced_ = true;
         state->cv_.notify_one();  // there are no more than one waiters
@@ -151,7 +151,7 @@ void Promise<T>::setError(std::exception_ptr err) {
     assert(!state->produced_);
     state->error_ = std::move(err);
     if (state->subscribed_) {
-        state->resolveSubscription();
+        state->resolveSubscription(ResolvedBy::kProducer);
     } else {
         state->produced_ = true;
         state->cv_.notify_one();  // there are no more than one waiters
@@ -222,7 +222,7 @@ void Future<T>::subscribe(SubscriptionPtr<T> subscription) {
     if (state->produced_) {
         // Scenario 1: state has already been produced and the callback will be executed in current thread
         // this is the only owning thread, so guard causes no contention
-        state->resolveSubscription();
+        state->resolveSubscription(ResolvedBy::kConsumer);
     } else {
         // Scenario 2: state has not yet been produced and the callback will be executed by producer
         state->subscribed_ = true;

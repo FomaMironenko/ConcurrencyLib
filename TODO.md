@@ -7,11 +7,11 @@
 - [x] Do not duplicate then logic in flatten
 - [ ] Safely handle references to ThreadPool
 - [ ] Enable std::function submit to ThreadPool and use this interface in AsyncResult impl
-- [ ] Add `wait`, `just_then`, `in` and `to_std_future` methods to AsyncResult
+- [x] Add `wait`, `just_then`, `in` and `to_std_future` methods to AsyncResult
 - [ ] Detect non-fatal sanitizer errors
 - [x] Inherit ThenSubscription from ProducerSubscription
 - [x] Fix flatten_void test
 - [ ] Enable moveonly function arguments in call_async
-- [ ] Enable void TaskGroup
+- [x] Enable void TaskGroup
 - [ ] Don't reallocate memory for ForwardSubscription in FlattenSubscription::resolveValue. Possibly just exchange shared state.
 - [ ] Move all subscription classes to details

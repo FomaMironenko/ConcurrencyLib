@@ -34,6 +34,21 @@ DEFINE_TEST(just_works) {
 }
 
 
+DEFINE_TEST(to_std_just_works) {
+    ThreadPool pool(4);
+    auto std_fut_bool = call_async<bool>(pool, [](){ return true; }).to_std();
+    auto std_fut_int = call_async<int>(pool, []() { return 42; }).to_std();
+    auto std_fut_double = call_async<double>(pool, []() { return 3.14; }).to_std();
+    auto std_fut_string = call_async<std::string>(pool, []() { return "string"; }).to_std();
+    auto std_fut_void = call_async<void>(pool, []() { return; }).to_std();
+    ASSERT_EQ(std_fut_bool.get(), true);
+    ASSERT_EQ(std_fut_int.get(), 42);
+    ASSERT_EQ(std_fut_double.get(), 3.14);
+    ASSERT_EQ(std_fut_string.get(), "string");
+    std_fut_void.get();
+}
+
+
 template <class T>
 struct WorstType {
     WorstType() = delete;
@@ -228,6 +243,68 @@ DEFINE_TEST(flatten_error) {
 }
 
 
+DEFINE_TEST(then_with_options) {
+    ThreadPool pool_one(1);
+    std::atomic<bool> fired { false };
+    auto fut = call_async<void>(pool_one, []() {
+        std::this_thread::sleep_for(50ms);
+    });
+    auto worker = call_async<void>(pool_one, [&fired]() {
+        fired.store(true);
+    });
+    bool no_reschedule = false;
+    fut = fut.then<void>([&no_reschedule, &fired]() {
+        no_reschedule = !fired.load();
+    }, ThenPolicy::NoSchedule);
+    worker.wait();
+    fut.wait();
+    ASSERT(no_reschedule);
+
+    AsyncResult<std::thread::id> executed_on;
+    // Lazy policy must reschedule task
+    executed_on = AsyncResult<void>::instant(pool_one)
+        .then<std::thread::id>([](){ return std::this_thread::get_id(); }, ThenPolicy::Lazy);
+    ASSERT_INEQ(executed_on.get(), std::this_thread::get_id());
+    // Eager policy must not block calling thread if result has been already produced
+    executed_on = AsyncResult<void>::instant(pool_one)
+        .then<std::thread::id>([](){ return std::this_thread::get_id(); }, ThenPolicy::Eager);
+    ASSERT_INEQ(executed_on.get(), std::this_thread::get_id());
+    // NoSchedule policy must not reschedule anyway
+    executed_on = AsyncResult<void>::instant(pool_one)
+        .then<std::thread::id>([](){ return std::this_thread::get_id(); }, ThenPolicy::NoSchedule);
+    ASSERT_EQ(executed_on.get(), std::this_thread::get_id());
+    pool_one.stop();
+
+    ThreadPool pool_two(4);
+    constexpr int NUM_ITERS = 10000;
+    std::vector<AsyncResult<bool>> just_then_res;
+    auto main_tid = std::this_thread::get_id();
+    for (int i = 0; i < NUM_ITERS; ++i) {
+        just_then_res.push_back(
+            call_async<std::thread::id>(pool_two, []() {
+                return std::this_thread::get_id();
+            }).then<bool>([&main_tid](std::thread::id prev_tid) {
+                auto current_tid = std::this_thread::get_id();
+                return (current_tid == main_tid) || (current_tid == prev_tid);
+            }, ThenPolicy::NoSchedule)
+        );
+        just_then_res.push_back(
+            call_async<std::thread::id>(pool_two, []() {
+                return std::this_thread::get_id();
+            }).then<bool>([&main_tid](std::thread::id) {
+                auto current_tid = std::this_thread::get_id();
+                return current_tid != main_tid;
+            }, ThenPolicy::Eager)
+        );
+    }
+    bool all_good = true;
+    for (int i = 0; i < NUM_ITERS; ++i) {
+        all_good = all_good && just_then_res[i].get();
+    }
+    ASSERT(all_good);
+}
+
+
 DEFINE_TEST(subscription_error) {
     ThreadPool pool(2);
     bool poisoned = false;
@@ -287,6 +364,36 @@ DEFINE_TEST(map_reduce) {
 }
 
 
+DEFINE_TEST(in_does_transfer) {
+    ThreadPool pool_1(1);
+    ThreadPool pool_2(1);
+    auto tid_1 = call_async<std::thread::id>(pool_1, []() { return std::this_thread::get_id(); }).get();
+    auto tid_2 = call_async<std::thread::id>(pool_2, []() { return std::this_thread::get_id(); }).get();
+    ASSERT(tid_1 != tid_2);
+    
+    constexpr int NUM_ITERS = 1000;
+    std::vector<AsyncResult<void>> results;
+    std::atomic<bool> ok_1{true}, ok_2{true};
+    auto check_good_1 = [&ok_1, tid_1]() { if (std::this_thread::get_id() != tid_1) ok_1.store(false); };
+    auto check_good_2 = [&ok_2, tid_2]() { if (std::this_thread::get_id() != tid_2) ok_2.store(false); };
+    for (int i = 0; i < NUM_ITERS; ++i) {
+        results.push_back(
+            AsyncResult<void>::instant(pool_1)
+            .in(pool_1).then<void>(check_good_1).then<void>(check_good_1)
+            .in(pool_2).then<void>(check_good_2)
+            .in(pool_1).then<void>(check_good_1)
+            .in(pool_2).then<void>(check_good_2)
+            .in(pool_2).then<void>(check_good_2)
+        );
+    }
+    for (auto & result : results) {
+        result.wait();
+    }
+    ASSERT(ok_1.load());
+    ASSERT(ok_2.load());
+}
+
+
 template <size_t num_workers>
 DEFINE_TEST(test_starvation) {
     ThreadPool pool(num_workers);
@@ -340,15 +447,18 @@ DEFINE_TEST(test_then_starvation) {
 
 int main() {
     RUN_TEST(just_works, "Just works")
+    RUN_TEST(to_std_just_works, "to_std just works")
     RUN_TEST(worst_type, "Async call with moveonly & non-default-constructible type")
     RUN_TEST(subscription_just_works, "Subscription just works")
     RUN_TEST(moveonly_arguments_in_subscription, "Subscription with moveonly arguments")
     RUN_TEST(flatten_is_async, "Flatten is async")
     RUN_TEST(flatten_void, "Flatten works with void")
+    RUN_TEST(then_with_options, "just_then is eager")
     RUN_TEST(make_async_just_works, "make_async just works")
     RUN_TEST(subscription_error, "Error in subscription")
     RUN_TEST(flatten_error, "Error in flatten")
     RUN_TEST(map_reduce, "Map reduce")
+    RUN_TEST(in_does_transfer, "In transfers execution to thread pool");
     RUN_TEST(test_starvation<2>, "Starvation test with 2 workers")
     RUN_TEST(test_starvation<5>, "Starvation test with 5 workers")
     RUN_TEST(test_then_starvation<2>, "Continuation starvation test with 2 workers")

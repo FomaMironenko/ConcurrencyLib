@@ -78,3 +78,15 @@ if ( !(bool_val) ) { \
         __FAIL \
     } \
 }
+
+
+#define ASSERT_INEQ(lhs, rhs) \
+{ \
+    __NUM_CASES.fetch_add(1); \
+    auto tmp_lhs = lhs; \
+    auto tmp_rhs = rhs; \
+    if ( (tmp_lhs) == (tmp_rhs) ) { \
+        LOG_ERR << "Assertion failed: \"" << #lhs << " != " << #rhs << "\"; with expansion " << tmp_lhs << " != " << tmp_rhs; \
+        __FAIL \
+    } \
+}

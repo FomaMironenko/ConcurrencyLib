@@ -5,6 +5,8 @@
 #include "utils/logger.hpp"
 
 
+enum class ResolvedBy { kProducer, kConsumer };
+
 template <class T>
 using ValueCallback = std::function<void(T)>;
 using ErrorCallback = std::function<void(std::exception_ptr)>;
@@ -14,11 +16,9 @@ template <class T>
 class ISubscription {
 public:
 
-    virtual void resolveValue(T value) = 0;
-    
-    virtual void resolveError(std::exception_ptr) {
-        LOG_ERR << "resolveError invoked for child class not implementing resolveError";
-    }
+    virtual void resolveValue(T value, ResolvedBy by) = 0;
+
+    virtual void resolveError(std::exception_ptr error, ResolvedBy by) = 0;
 
     virtual ~ISubscription() = default;
 
@@ -39,9 +39,9 @@ public:
         , on_error_(std::move(err_callback))
     {   }
 
-    void resolveValue(T value) override;
+    void resolveValue(T value, ResolvedBy) override;
     
-    void resolveError(std::exception_ptr error) override;
+    void resolveError(std::exception_ptr error, ResolvedBy) override;
 
 private:
     ValueCallback<T> on_value_;
@@ -49,12 +49,12 @@ private:
 };
 
 template <class T>
-void SimpleSubscription<T>::resolveValue(T value) {
+void SimpleSubscription<T>::resolveValue(T value, ResolvedBy) {
     on_value_(std::move(value));
 }
 
 template <class T>
-void SimpleSubscription<T>::resolveError(std::exception_ptr error) {
+void SimpleSubscription<T>::resolveError(std::exception_ptr error, ResolvedBy) {
     if (on_error_ == nullptr) {
         LOG_ERR << "Unhandled subscription exception";
         return;

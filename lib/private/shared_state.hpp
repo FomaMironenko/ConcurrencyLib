@@ -57,15 +57,15 @@ private:
     bool produced_ = false;
     bool subscribed_ = false;
 
-    void resolveSubscription();
+    void resolveSubscription(ResolvedBy by);
 };
 
 template <class T>
-void SharedState<T>::resolveSubscription() {
+void SharedState<T>::resolveSubscription(ResolvedBy by) {
     if (error_) {
-        subscription_->resolveError(error_);
+        subscription_->resolveError(error_, by);
     } else {
-        subscription_->resolveValue(std::move(*value_));
+        subscription_->resolveValue(std::move(*value_), by);
     }
     subscription_.reset();
 }

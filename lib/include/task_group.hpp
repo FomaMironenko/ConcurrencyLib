@@ -134,7 +134,7 @@ public:
         local_result_ = state_->attach();
     }
 
-    void resolveValue([[maybe_unused]] PhysicalType<T> value) override {
+    void resolveValue([[maybe_unused]] PhysicalType<T> value, ResolvedBy) override {
         if constexpr (!std::is_same_v<T, void>) {
             local_result_->val = std::move(value);
         }
@@ -142,7 +142,7 @@ public:
         state_.reset();
     }
 
-    void resolveError(std::exception_ptr err) override {
+    void resolveError(std::exception_ptr err, ResolvedBy) override {
         local_result_->err = std::move(err);
         state_->detach();
         state_.reset();
