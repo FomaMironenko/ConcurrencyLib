@@ -99,6 +99,34 @@ DEFINE_TEST(continuation) {
 }
 
 
+DEFINE_TEST(error_in_group_all) {
+    ThreadPool pool(2);
+    constexpr int NUM_ITERS = 100;
+    auto hazardous_async = make_async(pool, [](int x, int y) {
+        if (x == y) {
+            throw x;
+        }
+        return y;
+    });
+    for (int iter = 0; iter < NUM_ITERS; ++iter) {
+        GroupAll<int> tg;
+        for (int elt = 0; elt < NUM_ITERS; ++elt) {
+            if (elt == iter) {
+                tg.join(hazardous_async(iter, elt));
+            }
+        }
+        auto res = tg.merge();
+        res.wait();
+        try {
+            res.get();
+            FAIL();
+        } catch (int err) {
+            ASSERT_EQ(err, iter);
+        }
+    }
+}
+
+
 DEFINE_TEST(finish_before_merge) {
     ThreadPool pool(2);
     GroupAll<bool> tg;
@@ -182,13 +210,12 @@ DEFINE_TEST(prod_cons_pools) {
 }
 
 
-template <size_t num_workers>
+template <size_t num_workers, size_t jobMs>
 DEFINE_TEST(perfect_parallelization) {
     ThreadPool pool(num_workers);
     constexpr int NUM_CYCLES = 50;
     constexpr int NUM_TASKS = NUM_CYCLES * num_workers;
-    constexpr auto wait_time = 20ms;
-    double jobMs = static_cast<double>(wait_time.count());
+    constexpr auto wait_time = std::chrono::milliseconds(jobMs);
     AsyncFunction<Void()> async_job = make_async(pool, [wait_time]() {
         std::this_thread::sleep_for(wait_time);
         return Void{};
@@ -201,7 +228,9 @@ DEFINE_TEST(perfect_parallelization) {
     double elapsedMs = timer.elapsedMilliseconds();
 
     double coef = elapsedMs / (NUM_CYCLES * jobMs);
-    LOG_INFO << NUM_TASKS << " sleeping tasks " << jobMs << " ms each took " << elapsedMs << " ms on " << num_workers << " workers";
+    LOG_INFO << NUM_TASKS << " sleeping tasks "
+             << jobMs << " ms each on " << num_workers << " workers; "
+             << "overhead: " << std::fixed << std::setprecision(2) << 100 * (coef - 1) << "%";
     ASSERT(coef < 1.3);
 }
 
@@ -211,12 +240,13 @@ int main() {
     RUN_TEST(worst_type, "GroupAll with moveonly & non-default-constructible type")
     RUN_TEST(void_group_all, "GroupAll<void> just works");
     RUN_TEST(continuation, "Continuation");
+    RUN_TEST(error_in_group_all, "Error in GroupAll");
     RUN_TEST(finish_before_merge, "Finish before merge");
     RUN_TEST(finish_after_merge, "Finish after merge");
     RUN_TEST(prod_cons_pools, "Producer and consumer pools in single TaskGroup");
-    RUN_TEST(perfect_parallelization<1>, "Parallelization 1");
-    RUN_TEST(perfect_parallelization<2>, "Parallelization 2");
-    RUN_TEST(perfect_parallelization<4>, "Parallelization 4");
-    RUN_TEST(perfect_parallelization<8>, "Parallelization 8");
+    RUN_TEST((perfect_parallelization<2, 10>), "Parallelization 2; 10ms");
+    RUN_TEST((perfect_parallelization<8, 10>), "Parallelization 8; 10ms");
+    RUN_TEST((perfect_parallelization<2, 50>), "Parallelization 2; 50ms");
+    RUN_TEST((perfect_parallelization<8, 50>), "Parallelization 8; 50ms");
     COMPLETE();
 }
