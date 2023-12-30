@@ -262,15 +262,15 @@ DEFINE_TEST(then_with_options) {
 
     AsyncResult<std::thread::id> executed_on;
     // Lazy policy must reschedule task
-    executed_on = call_async<void>(pool_one, [](){})
+    executed_on = AsyncResult<void>::instant().in(pool_one)
         .then<std::thread::id>([](){ return std::this_thread::get_id(); }, ThenPolicy::Lazy);
     ASSERT_INEQ(executed_on.get(), std::this_thread::get_id());
     // Eager policy must not block calling thread if result has been already produced
-    executed_on = call_async<void>(pool_one, [](){})
+    executed_on = AsyncResult<void>::instant().in(pool_one)
         .then<std::thread::id>([](){ return std::this_thread::get_id(); }, ThenPolicy::Eager);
     ASSERT_INEQ(executed_on.get(), std::this_thread::get_id());
     // NoSchedule policy must not reschedule anyway
-    executed_on = call_async<void>(pool_one, [](){})
+    executed_on = AsyncResult<void>::instant().in(pool_one)
         .then<std::thread::id>([](){ return std::this_thread::get_id(); }, ThenPolicy::NoSchedule);
     ASSERT_EQ(executed_on.get(), std::this_thread::get_id());
     pool_one.stop();
