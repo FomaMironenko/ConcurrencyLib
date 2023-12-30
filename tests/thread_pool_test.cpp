@@ -364,6 +364,28 @@ DEFINE_TEST(map_reduce) {
 }
 
 
+struct PoolVerifier {
+    PoolVerifier(std::atomic<bool> & ok,
+                 std::thread::id expected_tid,
+                 std::atomic<int64_t> & num_invokes)
+        : ok_(ok)
+        , expected_tid_(expected_tid)
+        , num_invokes_(num_invokes)
+    {   }
+
+    void operator()() {
+        if (std::this_thread::get_id() != expected_tid_) {
+            ok_.store(false);
+        }
+        num_invokes_.fetch_add(1);
+    }
+
+private:
+    std::atomic<bool> & ok_;
+    std::thread::id expected_tid_;
+    std::atomic<int64_t> & num_invokes_;
+};
+
 DEFINE_TEST(in_does_transfer) {
     ThreadPool pool_1(1);
     ThreadPool pool_2(1);
@@ -371,24 +393,26 @@ DEFINE_TEST(in_does_transfer) {
     auto tid_2 = call_async<std::thread::id>(pool_2, []() { return std::this_thread::get_id(); }).get();
     ASSERT(tid_1 != tid_2);
     
-    constexpr int NUM_ITERS = 1000;
+    constexpr int NUM_ITERS = 10000;
     std::vector<AsyncResult<void>> results;
     std::atomic<bool> ok_1{true}, ok_2{true};
-    auto check_good_1 = [&ok_1, tid_1]() { if (std::this_thread::get_id() != tid_1) ok_1.store(false); };
-    auto check_good_2 = [&ok_2, tid_2]() { if (std::this_thread::get_id() != tid_2) ok_2.store(false); };
+    std::atomic<int64_t> num_invokes { 0 };
+    PoolVerifier check_pool_1 {ok_1, tid_1, num_invokes};
+    PoolVerifier check_pool_2 {ok_2, tid_2, num_invokes};
     for (int i = 0; i < NUM_ITERS; ++i) {
         results.push_back(
             AsyncResult<void>::instant(pool_1)
-            .in(pool_1).then<void>(check_good_1).then<void>(check_good_1)
-            .in(pool_2).then<void>(check_good_2)
-            .in(pool_1).then<void>(check_good_1)
-            .in(pool_2).then<void>(check_good_2)
-            .in(pool_2).then<void>(check_good_2)
+            .in(pool_1).then<void>(check_pool_1).then<void>(check_pool_1)
+            .in(pool_2).then<void>(check_pool_2)
+            .in(pool_1).then<void>(check_pool_1)
+            .in(pool_2).then<void>(check_pool_2)
+            .in(pool_2).then<void>(check_pool_2)
         );
     }
     for (auto & result : results) {
         result.wait();
     }
+    ASSERT_EQ(num_invokes.load(), NUM_ITERS * 6);
     ASSERT(ok_1.load());
     ASSERT(ok_2.load());
 }

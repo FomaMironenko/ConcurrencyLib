@@ -46,12 +46,15 @@ void ThreadPool::stop() {
         worker.join();
     }
     workers_.clear();
-    stopped_ = false;
 }
 
 void ThreadPool::submit(ThreadPool::Task task) {
     std::unique_lock guard(mtx_);
-    tasks_.push(std::move(task));
-    guard.unlock();
-    queue_cv_.notify_one();
+    if (!stopped_) {
+        tasks_.push(std::move(task));
+        guard.unlock();
+        queue_cv_.notify_one();
+    } else {
+        LOG_ERR << "Attempting to submit to stopped pool";
+    }
 }
