@@ -415,6 +415,8 @@ DEFINE_TEST(in_does_transfer) {
     ASSERT_EQ(num_invokes.load(), NUM_ITERS * 6);
     ASSERT(ok_1.load());
     ASSERT(ok_2.load());
+    pool_1.stop();
+    pool_2.stop();
 }
 
 

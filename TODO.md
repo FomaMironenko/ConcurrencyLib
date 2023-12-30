@@ -15,3 +15,4 @@
 - [x] Enable void TaskGroup
 - [ ] Don't reallocate memory for ForwardSubscription in FlattenSubscription::resolveValue. Possibly just exchange shared state.
 - [ ] Move all subscription classes to details
+- [ ] Fix issue with two pools destruction in `in_does_transfer` test
