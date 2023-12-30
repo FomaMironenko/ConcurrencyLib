@@ -340,6 +340,72 @@ DEFINE_TEST(subscription_error) {
 }
 
 
+DEFINE_TEST(catch_error) {
+    ThreadPool pool(2);
+    bool handled = false;
+
+    // Simple catch
+    handled = false;
+    auto fut1 = call_async<void>(pool, []() {
+        throw std::runtime_error("Oops");
+    }).catch_err<std::runtime_error>([&handled](const auto& err) {
+        handled = (err.what() == std::string("Oops"));
+    }).catch_err<std::exception>([&handled](const auto&) {
+        // Must not be invoked
+        handled = false;
+    });
+    fut1.wait();
+    ASSERT(handled);
+
+    // Throw worst type
+    handled = false;
+    auto fut2 = call_async<WorstType<int>>(pool, []() {
+        throw WorstType<double>(3.14);
+        return WorstType<int>(42);
+    }).catch_err<WorstType<double>>([&handled](const WorstType<double>& err) {
+        handled = (err.val == 3.14);
+        return WorstType<int>(84);
+    });
+    fut2.wait();
+    ASSERT(handled);
+    ASSERT_EQ(fut2.get().val, 84);
+
+    // Throw inside user handler
+    handled = false;
+    auto fut3 = call_async<int>(pool, []() {
+        throw std::runtime_error("Oops");
+        return 1;
+    }).catch_err<std::runtime_error>([](const auto&) {
+        throw std::runtime_error("Oops by user handler");
+        return 2;
+    }).catch_err<std::exception>([&handled](const auto& err) {
+        // Must not be invoked
+        handled = (err.what() == std::string("Oops by user handler"));
+        return 3;
+    });
+    ASSERT_EQ(fut3.get(), 3);
+    ASSERT(handled);
+
+    // catch_err does not catch unexpected types
+    handled = true;
+    auto fut4 = call_async<int>(pool, []() {
+        throw int(1);
+        return 1;
+    }).catch_err<bool>([&handled](const auto&) {
+        handled = false;
+        return 2;
+    }).catch_err<int>([&handled](const auto& err) {
+        handled = (err == 1);
+        return 3;
+    }).catch_err<double>([&handled](const auto&) {
+        handled = false;
+        return 4;
+    });
+    ASSERT_EQ(fut4.get(), 3);
+    ASSERT(handled);
+}
+
+
 DEFINE_TEST(map_reduce) {
     ThreadPool pool(4);
     std::vector<AsyncResult<uint32_t>> mapped;
@@ -484,6 +550,7 @@ int main() {
     RUN_TEST(make_async_just_works, "make_async just works")
     RUN_TEST(subscription_error, "Error in subscription")
     RUN_TEST(flatten_error, "Error in flatten")
+    RUN_TEST(catch_error, "Catch an exception")
     RUN_TEST(map_reduce, "Map reduce")
     RUN_TEST(in_does_transfer, "In transfers execution to thread pool");
     RUN_TEST(test_starvation<2>, "Starvation test with 2 workers")

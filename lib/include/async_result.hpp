@@ -13,6 +13,10 @@
 
 enum class ThenPolicy { Lazy, Eager, NoSchedule };
 
+template <class T, class Err>
+using ErrorHandler = std::function<T(const Err&)>;
+
+
 template <class T>
 class AsyncResult {
 
@@ -64,9 +68,14 @@ public:
     template <class Ret>
     AsyncResult<Ret> then(std::function<Ret(T)> func, ThenPolicy policy = ThenPolicy::Lazy);
 
+    // Handle an error if one of this type exists.
+    // Invalidates the object.
+    template <class Err>
+    AsyncResult<T> catch_err(ErrorHandler<T, Err> handler);
+
     // Schedules subsequent execution to another ThreadPool.
     // Invalidates the object.
-    AsyncResult in(ThreadPool& pool);
+    AsyncResult<T> in(ThreadPool& pool);
 
 private:
     Future<T> fut_;
@@ -120,9 +129,14 @@ public:
     template <class Ret>
     AsyncResult<Ret> then(std::function<Ret()> func, ThenPolicy policy = ThenPolicy::Lazy);
 
+    // Handle an error if one of this type exists.
+    // Invalidates the object.
+    template <class Err>
+    AsyncResult<void> catch_err(ErrorHandler<void, Err> handler);
+
     // Schedules subsequent execution to another ThreadPool.
     // Invalidates the object.
-    AsyncResult in(ThreadPool& pool);
+    AsyncResult<void> in(ThreadPool& pool);
 
 private:
     Future<Void> fut_;
@@ -229,6 +243,65 @@ AsyncResult<T> AsyncResult<T>::in(ThreadPool& pool) {
 
 AsyncResult<void> AsyncResult<void>::in(ThreadPool& pool) {
     return AsyncResult<void>{&pool, std::move(fut_)};
+}
+
+
+// =============================================== //
+// ==================== CATCH ==================== //
+// =============================================== //
+
+template <class T, class Err>
+class CatchSubscription : public PipeSubscription<T, T> {
+public:
+    explicit CatchSubscription(ErrorHandler<T, Err> handler, Promise<PhysicalType<T>> promise)
+        : PipeSubscription<T, T>(std::move(promise))
+        , handler_(std::move(handler)) {   }
+
+    void resolveValue(PhysicalType<T> val, ResolvedBy) override {
+        promise_.setValue(std::move(val));
+    }
+
+    void resolveError(std::exception_ptr err, ResolvedBy) override {
+        try {
+            std::rethrow_exception(err);
+        } catch (const Err& err) {
+            try {
+                // Don't trust user handler
+                if constexpr (std::is_same_v<T, void>) {
+                    handler_(err);
+                    promise_.setValue(Void{});
+                } else {
+                    T new_val = handler_(err);
+                    promise_.setValue(std::move(new_val));
+                }
+            } catch (...) {
+                promise_.setError(std::current_exception());
+            }
+        } catch (...) {
+            promise_.setError(std::current_exception());
+        }
+    }
+
+private:
+    using PipeSubscription<T, T>::promise_;
+    ErrorHandler<T, Err> handler_;
+};
+
+template <class T>
+template <class Err>
+AsyncResult<T> AsyncResult<T>::catch_err(ErrorHandler<T, Err> handler) {
+    auto [promise, future] = contract<PhysicalType<T> >();
+    fut_.subscribe(std::make_unique<CatchSubscription<T, Err> >(
+        std::move(handler), std::move(promise)));
+    return AsyncResult<T>{parent_pool_, std::move(future)};
+}
+
+template <class Err>
+AsyncResult<void> AsyncResult<void>::catch_err(ErrorHandler<void, Err> handler) {
+    auto [promise, future] = contract<PhysicalType<void> >();
+    fut_.subscribe(std::make_unique<CatchSubscription<void, Err> >(
+        std::move(handler), std::move(promise)));
+    return AsyncResult<void>{parent_pool_, std::move(future)};
 }
 
 
