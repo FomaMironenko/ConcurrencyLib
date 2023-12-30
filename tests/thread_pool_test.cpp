@@ -217,9 +217,9 @@ DEFINE_TEST(flatten_void) {
 DEFINE_TEST(flatten_error) {
     ThreadPool pool(2);
     // Error in the first level
-    auto fut1 = call_async<AsyncResult<int>>(pool, [&pool]() {
+    auto fut1 = call_async<AsyncResult<int>>(pool, []() {
         throw std::runtime_error("First level err");
-        return AsyncResult<int>::instant(pool, 0);
+        return AsyncResult<int>::instant(0);
     }).flatten();
     try {
         fut1.get();
@@ -262,15 +262,15 @@ DEFINE_TEST(then_with_options) {
 
     AsyncResult<std::thread::id> executed_on;
     // Lazy policy must reschedule task
-    executed_on = AsyncResult<void>::instant(pool_one)
+    executed_on = call_async<void>(pool_one, [](){})
         .then<std::thread::id>([](){ return std::this_thread::get_id(); }, ThenPolicy::Lazy);
     ASSERT_INEQ(executed_on.get(), std::this_thread::get_id());
     // Eager policy must not block calling thread if result has been already produced
-    executed_on = AsyncResult<void>::instant(pool_one)
+    executed_on = call_async<void>(pool_one, [](){})
         .then<std::thread::id>([](){ return std::this_thread::get_id(); }, ThenPolicy::Eager);
     ASSERT_INEQ(executed_on.get(), std::this_thread::get_id());
     // NoSchedule policy must not reschedule anyway
-    executed_on = AsyncResult<void>::instant(pool_one)
+    executed_on = call_async<void>(pool_one, [](){})
         .then<std::thread::id>([](){ return std::this_thread::get_id(); }, ThenPolicy::NoSchedule);
     ASSERT_EQ(executed_on.get(), std::this_thread::get_id());
     pool_one.stop();
@@ -401,8 +401,9 @@ DEFINE_TEST(in_does_transfer) {
     PoolVerifier check_pool_2 {ok_2, tid_2, num_invokes};
     for (int i = 0; i < NUM_ITERS; ++i) {
         results.push_back(
-            AsyncResult<void>::instant(pool_1)
-            .in(pool_1).then<void>(check_pool_1).then<void>(check_pool_1)
+            AsyncResult<void>::instant()
+            .in(pool_1).then<void>(check_pool_1)
+                       .then<void>(check_pool_1)
             .in(pool_2).then<void>(check_pool_2)
             .in(pool_1).then<void>(check_pool_1)
             .in(pool_2).then<void>(check_pool_2)
@@ -453,7 +454,7 @@ DEFINE_TEST(test_then_starvation) {
     std::unordered_map<std::thread::id, size_t> worker_cnt;
     constexpr size_t num_iters = 100'000;
 
-    AsyncResult<size_t> fut = AsyncResult<size_t>::instant(pool, 0);
+    AsyncResult<size_t> fut = AsyncResult<size_t>::instant(0).in(pool);
     for (size_t iter = 0; iter < num_iters; ++iter) {
         fut = fut.then<size_t>([&worker_cnt](size_t val) mutable {
             // Synchronized via continuation

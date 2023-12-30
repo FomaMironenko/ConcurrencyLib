@@ -32,7 +32,7 @@ DEFINE_TEST(just_works) {
     tg.join(call_async<int>(pool, []() { return 2; }));
     tg.join(call_async<int>(pool, []() { return 3; }));
     tg.join(call_async<int>(pool, []() { return 4; }));
-    auto results = tg.merge(pool).get();
+    auto results = tg.merge().get();
     std::vector<int> expected = {1, 2, 3, 4};
     ASSERT_EQ(results, expected);
 }
@@ -56,7 +56,7 @@ DEFINE_TEST(worst_type) {
     auto async_make_unique = make_async(pool, [](int val) { return WorstType(val); });
     tg.join(async_make_unique(21));
     tg.join(async_make_unique(42));
-    auto results = tg.merge(pool).get();
+    auto results = tg.merge().get();
     ASSERT_EQ(results.size(), 2u);
     ASSERT_EQ(results[0].val, 21);
     ASSERT_EQ(results[1].val, 42);
@@ -73,7 +73,7 @@ DEFINE_TEST(void_group_all) {
     for (int i = 0; i < NUM_ITERS; ++i) {
         tg.join( increment(std::ref(state)) );
     }
-    AsyncResult<void> all = tg.merge(pool);
+    AsyncResult<void> all = tg.merge();
     all.wait();
     ASSERT_EQ(state.load(), NUM_ITERS);
 }
@@ -90,11 +90,11 @@ DEFINE_TEST(continuation) {
         expected += pow2(val);
         tg.join( async_pow2(val) );
     }
-    auto mapped = tg.merge(pool).then<int>([] (std::vector<int> vals) {
+    auto mapped = tg.merge().then<int>([] (std::vector<int> vals) {
         int sum = 0;
         for (const int val : vals) sum += val;
         return sum;
-    });
+    }, ThenPolicy::NoSchedule);
     ASSERT_EQ(mapped.get(), expected);
 }
 
@@ -106,7 +106,7 @@ DEFINE_TEST(finish_before_merge) {
     tg.join(call_async<bool>(pool, []() { return true; }));
     tg.join(call_async<bool>(pool, []() { return true; }));
     std::this_thread::sleep_for(50ms);
-    auto res = tg.merge(pool);
+    auto res = tg.merge();
     ASSERT_EQ(res.get().size(), 3u);
 }
 
@@ -121,7 +121,7 @@ DEFINE_TEST(finish_after_merge) {
     tg->join(async_fun());
     tg->join(async_fun());
     tg->join(async_fun());
-    AsyncResult<std::vector<bool> > res = tg->merge(pool);
+    AsyncResult<std::vector<bool> > res = tg->merge();
     asm("");    // prohibit reordering
     tg.reset(); // destroy task group
     std::vector<bool> vals = res.get();
@@ -166,7 +166,7 @@ DEFINE_TEST(prod_cons_pools) {
     for (int iter = 0; iter < NUM_ITERS; ++iter) tg.join(produce());
     // Consumers would have never started if they were submitted to the same pool as producers
     for (int iter = 0; iter < NUM_ITERS; ++iter) tg.join(consume());
-    std::vector<int> history = tg.merge(prod_pool).get();
+    std::vector<int> history = tg.merge().get();
 
     ASSERT(state.load() == 0);
     std::map<int, int> freq;
@@ -197,7 +197,7 @@ DEFINE_TEST(perfect_parallelization) {
     Timer timer;
     GroupAll<Void> tg;
     for (int i_task = 0; i_task < NUM_TASKS; ++i_task) tg.join(async_job());
-    tg.merge(pool).get();
+    tg.merge().get();
     double elapsedMs = timer.elapsedMilliseconds();
 
     double coef = elapsedMs / (NUM_CYCLES * jobMs);

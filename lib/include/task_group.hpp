@@ -113,7 +113,7 @@ public:
 
     void join(AsyncResult<T> result);
 
-    AsyncResult<GroupAllType<T>> merge(ThreadPool& pool);
+    AsyncResult<GroupAllType<T>> merge();
 
 private:
     std::shared_ptr<details::GroupState<T>> state_;
@@ -159,16 +159,16 @@ void GroupAll<T>::join(AsyncResult<T> res) {
 }
 
 
-// ============================================================== //
-// ==================== MERGE & ON ALL READY ==================== //
-// ============================================================== //
+// =============================================== //
+// ==================== MERGE ==================== //
+// =============================================== //
 
 template <class T>
-AsyncResult<GroupAllType<T>> GroupAll<T>::merge(ThreadPool& pool) {
+AsyncResult<GroupAllType<T>> GroupAll<T>::merge() {
     if (!state_) {
         throw std::runtime_error("Trying to merge GroupAll twice");
     }
     state_->detach();
     state_.reset();
-    return {pool, std::move(future_)};
+    return {nullptr, std::move(future_)};
 }

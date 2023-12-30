@@ -1,13 +1,14 @@
 - [x] Split ThreadPool and AsyncResult
 - [ ] Simplify Void logic
 - [x] Add AsyncResult::value instead of weird constructor
-- [ ] Fix .template in sort test
+- [x] Fix .template in sort test
 - [x] Don't pass ThreadPool to GroupAll
 - [ ] Enable AsyncResult and GroupAll.merge without ThreadPool
 - [x] Do not duplicate then logic in flatten
 - [ ] Safely handle references to ThreadPool
 - [ ] Enable std::function submit to ThreadPool and use this interface in AsyncResult impl
 - [x] Add `wait`, `just_then`, `in` and `to_std_future` methods to AsyncResult
+- [ ] Add `catch` method to AsyncResult
 - [ ] Detect non-fatal sanitizer errors
 - [x] Inherit ThenSubscription from ProducerSubscription
 - [x] Fix flatten_void test

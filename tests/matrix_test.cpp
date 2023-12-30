@@ -61,7 +61,7 @@ Matrix<int64_t> parallelMultiply(const Matrix<int64_t>& lhs, const Matrix<int64_
         out_rows.join(asyncComputeRow(lhs[row], std::cref(rhs_t)));
     }
     return out_rows
-        .merge(tp)
+        .merge()
         .then<Matrix<int64_t>>([rows, cols](std::vector<ColumnVec<int64_t>> prod_rows) {
             Matrix<int64_t> result(rows, cols);
             if (static_cast<int64_t>(prod_rows.size()) != rows) {
@@ -75,7 +75,7 @@ Matrix<int64_t> parallelMultiply(const Matrix<int64_t>& lhs, const Matrix<int64_
                 }
             }
             return result;
-        })
+        }, ThenPolicy::NoSchedule)
         .get();
 }
 

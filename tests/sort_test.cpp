@@ -39,7 +39,7 @@ std::pair<Iterator, Iterator> split(Iterator begin, Iterator end) {
 template <class Iterator>
 AsyncResult<void> divideAndSort(Iterator begin, Iterator end, ThreadPool& pool) {
     if (std::distance(begin, end) <= 1) {
-        return AsyncResult<void>::instant(pool);
+        return AsyncResult<void>::instant();
     }
     return call_async<std::pair<Iterator, Iterator>>(pool,
             split<Iterator>, begin, end
@@ -47,7 +47,7 @@ AsyncResult<void> divideAndSort(Iterator begin, Iterator end, ThreadPool& pool) 
             GroupAll<void> sort_halves;
             sort_halves.join(divideAndSort(begin, middle.first, pool));
             sort_halves.join(divideAndSort(middle.second, end, pool));
-            return sort_halves.merge(pool);
+            return sort_halves.merge();
         }).flatten();
 }
 
@@ -56,8 +56,7 @@ AsyncResult<void> divideAndSort(Iterator begin, Iterator end, ThreadPool& pool) 
 
 template <class Iterator>
 void parallelQuickSort(Iterator begin, Iterator end, ThreadPool& pool) {
-    auto result_handle = details::divideAndSort(begin, end, pool);
-    result_handle.get();
+    details::divideAndSort(begin, end, pool).wait();
 }
 
 

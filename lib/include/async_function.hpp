@@ -48,7 +48,7 @@ inline AsyncResult<Ret> call_async(ThreadPool& pool, Fun&& fun, Args &&...args) 
     std::function<Ret()> task = std::bind(std::forward<Fun>(fun), std::forward<Args>(args)...);
     ThreadPool::Task pool_task = std::make_unique<details::AsyncTask<Ret> >(std::move(task), std::move(promise));
     pool.submit(std::move(pool_task));
-    return AsyncResult<Ret>{pool, std::move(future)};
+    return AsyncResult<Ret>{&pool, std::move(future)};
 }
 
 template <class Fun>

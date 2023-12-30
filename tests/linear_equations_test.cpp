@@ -35,7 +35,8 @@ ColumnVec<double> resolveViaIterations(const Matrix<T>& mtx, const ColumnVec<T> 
             vector_elements.join( asyncComputeElement(mtx[idx], std::cref(result), rhs[idx], idx) );
         }
         vector_elements
-            .merge(pool)
+            .merge()
+            .in(pool)
             .template then<void>([&result](std::vector<T> updated) {
                 if (static_cast<int64_t>(updated.size()) != result.size()) {
                     LOG_ERR << "Mismatching result (" << result.size() << ") and output (" << updated.size() << ") sizes";
@@ -44,7 +45,7 @@ ColumnVec<double> resolveViaIterations(const Matrix<T>& mtx, const ColumnVec<T> 
                 for (size_t idx = 0; idx < updated.size(); ++idx) {
                     result[idx] = updated[idx];
                 }
-            })
+            }, ThenPolicy::Eager)
             .get();
     }
     return result;
@@ -70,10 +71,12 @@ ColumnVec<double> resolveViaConjugateGrads(const Matrix<T>& mtx, const ColumnVec
             mtx_mul_tasks.join( asyncDot(mtx[idx], r) );
         }
         double prev_rr = Linalg::dot(r, r);
-        ColumnVec<double> Az = mtx_mul_tasks.merge(pool)
+        ColumnVec<double> Az = mtx_mul_tasks
+            .merge()
             .then<ColumnVec<double>>([](std::vector<double> res) {
                 return ColumnVec<double>(std::move(res));
-            }).get();
+            }, ThenPolicy::NoSchedule)
+            .get();
         double Azz = Linalg::dot(Az, z);
         if (prev_rr == 0) {
             throw std::runtime_error("r_{k-1} * r_{k-1} == 0");
