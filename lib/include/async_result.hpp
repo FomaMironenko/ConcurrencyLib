@@ -55,7 +55,8 @@ public:
     // Asynchronously unwrap nested AsyncResult.
     // Can be called only with AsyncResult< AsyncResult<...> > types.
     // Invalidates the object.
-    T flatten();
+    template <class U = T>
+    std::enable_if_t<is_async_result<U>::value, T> flatten();
 
     // Create a ready-to-use AsyncResult filled with value
     static AsyncResult instant(T value);
@@ -391,9 +392,9 @@ private:
 };
 
 template <class T>
-T AsyncResult<T>::flatten() {
-    // Cannot be compiled for non AsyncResult type T
-    static_assert(is_async_result<T>::value, "flatten cannot be used with non nested AsyncResults");
+template <class U>
+std::enable_if_t<is_async_result<U>::value, T> AsyncResult<T>::flatten() {
+    static_assert(std::is_same_v<T, U>, "Cannot call flatten with non-default template argument");
     using Ret = typename async_type<T>::type;
     // Utilize duck typing
     auto [promise, future] = contract<PhysicalType<Ret> >();
