@@ -43,9 +43,8 @@ friend inline auto make_async(ThreadPool& pool, F&& fun);
 
 template <class Ret, class Fun, class ...Args>
 inline AsyncResult<Ret> call_async(ThreadPool& pool, Fun&& fun, Args &&...args) {
-    using ContractType = typename std::conditional_t< std::is_same_v<Ret, void>, Void, Ret >;
-    auto [promise, future] = contract<ContractType>();
-    std::function<Ret()> task = std::bind(std::forward<Fun>(fun), std::forward<Args>(args)...);
+    auto [promise, future] = contract<Ret>();
+    FunctionType<Ret, void> task = std::bind(std::forward<Fun>(fun), std::forward<Args>(args)...);
     ThreadPool::Task pool_task = std::make_unique<details::AsyncTask<Ret> >(std::move(task), std::move(promise));
     pool.submit(std::move(pool_task));
     return AsyncResult<Ret>{&pool, std::move(future)};

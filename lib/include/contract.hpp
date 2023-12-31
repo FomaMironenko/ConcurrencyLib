@@ -11,10 +11,18 @@
 #include "../private/type_traits.hpp"
 
 
+// Forward declare
+template <class T> struct Contract;
+
+
 template <class T>
 class Promise {
+
+using StateType = details::SharedState<PhysicalType<T> >;
+template <class U> friend Contract<U> contract();
+
 private:
-    Promise(std::shared_ptr<details::SharedState<T>> state) : state_(std::move(state)) {    }
+    Promise(std::shared_ptr<StateType> state) : state_(std::move(state)) {    }
 
 public:
     Promise(const Promise&) = delete;
@@ -22,21 +30,22 @@ public:
     Promise& operator=(const Promise&) = delete;
     Promise& operator=(Promise&&) = delete;
 
-    void setValue(T value);
+    void setValue(PhysicalType<T> value);
     void setError(std::exception_ptr err);
 
 private:
-    std::shared_ptr<details::SharedState<T>> state_;
-
-template <class U>
-friend Contract<U> contract();
+    std::shared_ptr<StateType> state_;
 };
 
 
 template <class T>
 class Future {
+
+using StateType = details::SharedState<PhysicalType<T> >;
+template <class U> friend Contract<U> contract();
+
 private:
-    Future(std::shared_ptr<details::SharedState<T>> state) : state_(std::move(state)) {    }
+    Future(std::shared_ptr<StateType> state) : state_(std::move(state)) {    }
 
 public:
     Future() = default;
@@ -46,7 +55,7 @@ public:
     Future& operator=(Future&&) = default;
 
     // Create a ready-to-use Future filled with a value.
-    static Future instantValue(T value);
+    static Future instantValue(PhysicalType<T> value);
     // Create a ready-to-use Future filled with an exception.
     static Future instantError(std::exception_ptr error);
 
@@ -54,20 +63,17 @@ public:
     void wait();
 
     // Wait for the Promise to be resolved and return value. Invalidates the Future.
-    T get();
+    PhysicalType<T> get();
 
     // Subscribe to the result. An appropriate callback will be executed instantly
     // by this thread in case a result has been produced already, and by the producer
     // thread when calling setValue / setError on Promise object otherwise.
     // Invalidates the Future.
-    void subscribe(ValueCallback<T> on_value, ErrorCallback on_error = nullptr);
-    void subscribe(SubscriptionPtr<T> subscription);
+    void subscribe(ValueCallback<PhysicalType<T> > on_value, ErrorCallback on_error = nullptr);
+    void subscribe(SubscriptionPtr<PhysicalType<T> > subscription);
 
 private:
-    std::shared_ptr<details::SharedState<T>> state_;
-
-template <class U>
-friend Contract<U> contract();
+    std::shared_ptr<StateType> state_;
 };
 
 
@@ -83,7 +89,7 @@ struct Contract {
 
 template <class T>
 Contract<T> contract() {
-    auto state = std::make_shared<details::SharedState<T>>();
+    auto state = std::make_shared<details::SharedState<PhysicalType<T> > >();
     return {Promise<T>{state}, Future<T>{state}};
 }
 
@@ -95,7 +101,7 @@ Contract<T> contract() {
 template <class Ret, class Arg>
 class PipeSubscription : public ISubscription<PhysicalType<Arg> > {
 public:
-    PipeSubscription(Promise<PhysicalType<Ret> > promise)
+    PipeSubscription(Promise<Ret> promise)
         : promise_(std::move(promise)) {   }
 
     virtual void resolveError(std::exception_ptr err, ResolvedBy) override {
@@ -103,18 +109,21 @@ public:
     }
 
 protected:
-    Promise<PhysicalType<Ret> > promise_;
+    Promise<Ret> promise_;
 };
 
 template <class T>
 class ForwardSubscription : public PipeSubscription<T, T> {
 public:
-    ForwardSubscription(Promise<PhysicalType<T>> promise)
+    ForwardSubscription(Promise<T> promise)
         : PipeSubscription<T, T>(std::move(promise)) {  }
 
     virtual void resolveValue(PhysicalType<T> value, ResolvedBy) override {
-        PipeSubscription<T, T>::promise_.setValue(std::move(value));
+        promise_.setValue(std::move(value));
     }
+
+private:
+    using PipeSubscription<T, T>::promise_;
 };
 
 
@@ -123,7 +132,7 @@ public:
 // ======================================================== //
 
 template <class T>
-void Promise<T>::setValue(T value) {
+void Promise<T>::setValue(PhysicalType<T> value) {
     auto state = std::move(state_);
     if (!state) {
         throw std::runtime_error("Trying to set value in a produced state");
@@ -160,8 +169,8 @@ void Promise<T>::setError(std::exception_ptr err) {
 
 
 template <class T>
-Future<T> Future<T>::instantValue(T value) {
-    auto state = std::make_shared<details::SharedState<T>>();
+Future<T> Future<T>::instantValue(PhysicalType<T> value) {
+    auto state = std::make_shared<StateType>();
     state->value_ = std::move(value);
     state->produced_ = true;
     return Future<T>{state};
@@ -169,14 +178,14 @@ Future<T> Future<T>::instantValue(T value) {
 
 template <class T>
 Future<T> Future<T>::instantError(std::exception_ptr error) {
-    auto state = std::make_shared<details::SharedState<T>>();
+    auto state = std::make_shared<StateType>();
     state->error_ = std::move(error);
     state->produced_ = true;
     return Future<T>{state};
 }
 
 template <class T>
-T Future<T>::get() {
+PhysicalType<T> Future<T>::get() {
     auto state = std::move(state_);
     if (!state) {
         throw std::runtime_error("Trying to get a spoiled state");
@@ -206,12 +215,12 @@ void Future<T>::wait() {
 }
 
 template <class T>
-void Future<T>::subscribe(ValueCallback<T> on_value, ErrorCallback on_error) {
+void Future<T>::subscribe(ValueCallback<PhysicalType<T>> on_value, ErrorCallback on_error) {
     subscribe(std::make_unique<SimpleSubscription<T>>(std::move(on_value), std::move(on_error)));
 }
 
 template <class T>
-void Future<T>::subscribe(SubscriptionPtr<T> subscription) {
+void Future<T>::subscribe(SubscriptionPtr<PhysicalType<T>> subscription) {
     auto state = std::move(state_);
     if (!state) {
         throw std::runtime_error("Trying to subscribe to spoiled state");

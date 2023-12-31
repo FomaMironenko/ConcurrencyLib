@@ -12,8 +12,7 @@ namespace details {
 template <class Ret>
 class AsyncTask : public ITaskBase {
 public:
-    AsyncTask(std::function<Ret()>&& func,
-              Promise<PhysicalType<Ret> > promise)
+    AsyncTask(FunctionType<Ret, void>&& func, Promise<Ret>&& promise)
         : func_(std::move(func))
         , promise_(std::move(promise))
     {   }
@@ -33,14 +32,14 @@ public:
     }
 
 private:
-    std::function<Ret()> func_;
-    Promise<PhysicalType<Ret>> promise_;
+    FunctionType<Ret, void> func_;
+    Promise<Ret> promise_;
 };
 
 template <class Ret>
-inline std::unique_ptr<AsyncTask<Ret> > make_async_task(std::function<Ret()>&& func,
-                                                        Promise<PhysicalType<Ret> > promise
-) {
+inline std::unique_ptr<AsyncTask<Ret> >
+make_async_task(FunctionType<Ret, void>&& func, Promise<Ret>&& promise)
+{
     return std::make_unique<AsyncTask<Ret> >(std::move(func), std::move(promise));
 }
 
@@ -50,12 +49,12 @@ class BoundAsyncTask : public ITaskBase {
 static_assert(!std::is_same_v<Arg, void>, "BoundAsyncTask is only needed for non-void arguments");
 
 public:
-    BoundAsyncTask(std::function<Ret(Arg)> func,
-                   Arg arg,
-                   Promise<PhysicalType<Ret>> promise)
+    BoundAsyncTask(FunctionType<Ret, Arg>&& func,
+                   Promise<Ret>&& promise,
+                   Arg&& arg)
         : func_(std::move(func))
-        , arg_(std::move(arg))
         , promise_(std::move(promise))
+        , arg_(std::move(arg))
     {   }
 
     void run() override {
@@ -73,17 +72,16 @@ public:
     }
 
 private:
-    std::function<Ret(Arg)> func_;
+    FunctionType<Ret, Arg> func_;
+    Promise<Ret> promise_;
     Arg arg_;
-    Promise<PhysicalType<Ret>> promise_;
 };
 
 template <class Ret, class Arg>
-inline std::unique_ptr<BoundAsyncTask<Ret, Arg> > make_bound_async_task(std::function<Ret(Arg)>&& func,
-                                                                        Arg&& arg,
-                                                                        Promise<PhysicalType<Ret> > promise
-) {
-    return std::make_unique<BoundAsyncTask<Ret, Arg> >(std::move(func), std::move(arg), std::move(promise));
+inline std::unique_ptr<BoundAsyncTask<Ret, Arg> >
+make_bound_async_task(FunctionType<Ret, Arg>&& func, Promise<Ret>&& promise, Arg&& arg)
+{
+    return std::make_unique<BoundAsyncTask<Ret, Arg> >(std::move(func), std::move(promise), std::move(arg));
 }
 
 

@@ -14,7 +14,6 @@
 // Forward declare
 template <class T> class Promise;
 template <class T> class Future;
-template <class T> struct Contract;
 
 
 namespace details {
@@ -43,8 +42,8 @@ struct Result<void> {
 template <class T>
 struct SharedState {
 
-friend class Promise<T>;
-friend class Future<T>;
+template <class U> friend class ::Promise;
+template <class U> friend class ::Future;
 
 private:
     std::mutex mtx_;

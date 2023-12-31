@@ -28,7 +28,7 @@ template <class Ret, class Fun, class ...Args>
 friend inline AsyncResult<Ret> call_async(ThreadPool& pool, Fun&& fun, Args &&...args);
 
 private:
-    AsyncResult(ThreadPool* pool, Future<PhysicalType<T>> fut)
+    AsyncResult(ThreadPool* pool, Future<T> fut)
         : fut_(std::move(fut))
         , parent_pool_(pool)
     {    }
@@ -60,7 +60,7 @@ public:
 
     // Create a ready-to-use AsyncResult filled with value
     template <class U = T>
-    static std::enable_if_t< std::is_same_v<U, void>, AsyncResult<T>> instant();
+    static std::enable_if_t< std::is_same_v<U, void>, AsyncResult<U>> instant();
 
     template <class U = T>
     static std::enable_if_t<!std::is_same_v<U, void>, AsyncResult<U>> instant(U value);
@@ -83,7 +83,7 @@ public:
     AsyncResult<T> in(ThreadPool& pool);
 
 private:
-    Future<PhysicalType<T>> fut_;
+    Future<T> fut_;
     ThreadPool* parent_pool_;
 };
 
@@ -148,9 +148,9 @@ std::future<T> AsyncResult<T>::to_std() {
 
 template <class T>
 template <class U>
-std::enable_if_t<std::is_same_v<U, void>, AsyncResult<T>> AsyncResult<T>::instant() {
+std::enable_if_t<std::is_same_v<U, void>, AsyncResult<U>> AsyncResult<T>::instant() {
     static_assert(std::is_same_v<T, U>, "Cannot call instant with non-default template argument");
-    return AsyncResult<void>{nullptr, Future<Void>::instantValue(Void{})};
+    return AsyncResult<void>{nullptr, Future<void>::instantValue(Void{})};
 }
 
 template <class T>
@@ -163,7 +163,7 @@ std::enable_if_t<!std::is_same_v<U, void>, AsyncResult<U>> AsyncResult<T>::insta
 
 template <class T>
 AsyncResult<T> AsyncResult<T>::instantFail(std::exception_ptr error) {
-    return AsyncResult<T>{nullptr, Future<PhysicalType<T>>::instantError(std::move(error))};
+    return AsyncResult<T>{nullptr, Future<T>::instantError(std::move(error))};
 }
 
 
@@ -184,7 +184,7 @@ AsyncResult<T> AsyncResult<T>::in(ThreadPool& pool) {
 template <class T, class Err>
 class CatchSubscription : public PipeSubscription<T, T> {
 public:
-    explicit CatchSubscription(ErrorHandler<T, Err> handler, Promise<PhysicalType<T>> promise)
+    explicit CatchSubscription(ErrorHandler<T, Err> handler, Promise<T> promise)
         : PipeSubscription<T, T>(std::move(promise))
         , handler_(std::move(handler)) {   }
 
@@ -221,7 +221,7 @@ private:
 template <class T>
 template <class Err>
 AsyncResult<T> AsyncResult<T>::catch_err(ErrorHandler<T, Err> handler) {
-    auto [promise, future] = contract<PhysicalType<T> >();
+    auto [promise, future] = contract<T>();
     fut_.subscribe(std::make_unique<CatchSubscription<T, Err> >(
         std::move(handler), std::move(promise)));
     return AsyncResult<T>{parent_pool_, std::move(future)};
@@ -236,8 +236,8 @@ template <class Ret, class Arg>
 class ThenSubscription : public PipeSubscription<Ret, Arg> {
 public:
     ThenSubscription(FunctionType<Ret, Arg> func,
-                     Promise<PhysicalType<Ret> > promise,
-                     ThreadPool * continuation_pool,
+                     Promise<Ret> promise,
+                     ThreadPool* continuation_pool,
                      ThenPolicy policy
     )
         : PipeSubscription<Ret, Arg> (std::move(promise))
@@ -256,7 +256,7 @@ public:
         if constexpr (std::is_same_v<Arg, void>) {
             pool_task = details::make_async_task<Ret>(std::move(func_), std::move(promise_));
         } else {
-            pool_task = details::make_bound_async_task<Ret, Arg>(std::move(func_), std::move(value), std::move(promise_));
+            pool_task = details::make_bound_async_task<Ret, Arg>(std::move(func_), std::move(promise_), std::move(value));
         }
         if (execution_policy_ == ThenPolicy::NoSchedule) {
             pool_task->run();
@@ -277,7 +277,7 @@ private:
 template <class T>
 template <class Ret>
 AsyncResult<Ret> AsyncResult<T>::then(FunctionType<Ret, T> func, ThenPolicy policy) {
-    auto [promise, future] = contract<PhysicalType<Ret> >();
+    auto [promise, future] = contract<Ret>();
     fut_.subscribe(std::make_unique<ThenSubscription<Ret, T> >(
         std::move(func), std::move(promise), parent_pool_, policy));
     return AsyncResult<Ret>{parent_pool_, std::move(future)};
@@ -291,7 +291,7 @@ AsyncResult<Ret> AsyncResult<T>::then(FunctionType<Ret, T> func, ThenPolicy poli
 template <class Ret>
 class FlattenSubscription : public PipeSubscription<Ret, AsyncResult<Ret>> {
 public:
-    FlattenSubscription(Promise<PhysicalType<Ret> > promise)
+    FlattenSubscription(Promise<Ret> promise)
         : PipeSubscription<Ret, AsyncResult<Ret>>(std::move(promise))
     {   }
 
@@ -302,7 +302,7 @@ public:
     }
 
 private:
-    using PipeSubscription<Ret, AsyncResult<Ret>>::promise_;
+    using PipeSubscription<Ret, AsyncResult<Ret> >::promise_;
 };
 
 template <class T>
@@ -311,7 +311,7 @@ std::enable_if_t<is_async_result<U>::value, T> AsyncResult<T>::flatten() {
     static_assert(std::is_same_v<T, U>, "Cannot call flatten with non-default template argument");
     using Ret = typename async_type<T>::type;
     // Utilize duck typing
-    auto [promise, future] = contract<PhysicalType<Ret> >();
+    auto [promise, future] = contract<Ret>();
     fut_.subscribe( std::make_unique<FlattenSubscription<Ret> >(std::move(promise)) );
     return AsyncResult<Ret>{parent_pool_, std::move(future)};
 }

@@ -30,7 +30,7 @@ namespace details {
 template <class T>
 class GroupState {
 public:
-    explicit GroupState(Promise<PhysicalType<GroupAllType<T>>> promise)
+    explicit GroupState(Promise<GroupAllType<T> > promise)
         : num_references(1)
         , results()
         , promise(std::move(promise))
@@ -45,7 +45,7 @@ private:
 private:
     std::atomic<int64_t> num_references;
     std::deque<Result<T>> results;
-    Promise<PhysicalType<GroupAllType<T>>> promise;
+    Promise<GroupAllType<T> > promise;
 };
 
 template <class T>
@@ -106,8 +106,8 @@ template <class U> friend class JoinSubscription;
 
 public:
     GroupAll() {
-        auto [promise, future] = contract<PhysicalType<GroupAllType<T>>>();
-        state_ = std::make_shared<details::GroupState<T>>(std::move(promise));
+        auto [promise, future] = contract<GroupAllType<T> >();
+        state_ = std::make_shared<details::GroupState<T> >(std::move(promise));
         future_ = std::move(future);
     }
 
@@ -117,7 +117,7 @@ public:
 
 private:
     std::shared_ptr<details::GroupState<T>> state_;
-    Future<PhysicalType<GroupAllType<T>>> future_;
+    Future<GroupAllType<T> > future_;
 };
 
 
