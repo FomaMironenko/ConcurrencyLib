@@ -142,7 +142,7 @@ DEFINE_TEST(make_async_just_works) {
     int64_t expected = 0;
     for (int64_t i = 0; i < 100; ++i) {
         results.push_back(async_pow(i, 2));
-        expected += std::pow<int64_t>(i, 2);
+        expected += binPow<int64_t>(i, 2);
     }
 
     int64_t actual = 0;
@@ -520,7 +520,7 @@ DEFINE_TEST(test_then_starvation) {
     std::unordered_map<std::thread::id, size_t> worker_cnt;
     constexpr size_t num_iters = 100'000;
 
-    AsyncResult<size_t> fut = AsyncResult<size_t>::instant(0ul).in(pool);
+    AsyncResult<size_t> fut = AsyncResult<size_t>::instant(size_t(0)).in(pool);
     for (size_t iter = 0; iter < num_iters; ++iter) {
         fut = fut.then<size_t>([&worker_cnt](size_t val) mutable {
             // Synchronized via continuation

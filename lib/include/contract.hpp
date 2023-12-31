@@ -195,12 +195,11 @@ PhysicalType<T> Future<T>::get() {
     while (!state->produced_) {
         state->cv_.wait(guard);
     }
-    if (state->value_.has_value()) {
-        return std::move(*state->value_);
-    } else if (state->error_) {
+    if (state->error_) {
         std::rethrow_exception(state->error_);
     }
-    assert(false);
+    assert(state->value_.has_value());
+    return std::move(*state->value_);
 }
 
 template <class T>

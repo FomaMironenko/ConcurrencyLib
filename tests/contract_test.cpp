@@ -160,7 +160,7 @@ DEFINE_TEST(exception_in_subscribe) {
 
 
 DEFINE_TEST(map_reduce) {
-    constexpr int num_iters = 1000;
+    static constexpr int num_iters = 1000; // static here is needed for Visual Studio compiler
     std::vector<Promise<int>> to_map;
     std::vector<Future<int>> mapped;
     for (int i = 0; i < num_iters; ++i) {

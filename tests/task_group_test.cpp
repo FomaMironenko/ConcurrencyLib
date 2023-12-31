@@ -150,8 +150,10 @@ DEFINE_TEST(finish_after_merge) {
     tg->join(async_fun());
     tg->join(async_fun());
     AsyncResult<std::vector<bool> > res = tg->merge();
-    asm("");    // prohibit reordering
-    tg.reset(); // destroy task group
+    #ifndef WIN32
+    asm("");  // prohibit reordering
+    #endif
+    tg.reset();  // destroy task group
     std::vector<bool> vals = res.get();
     ASSERT_EQ(vals.size(), 3u);
     for (bool val : vals) {
@@ -165,8 +167,8 @@ DEFINE_TEST(prod_cons_pools) {
     ThreadPool cons_pool(2);
 
     std::atomic<int> state{0};
-    constexpr int MIN = 0;
-    constexpr int MAX = 6;
+    static constexpr int MIN = 0; // static here is needed for Visual Studio compiler
+    static constexpr int MAX = 6; // static here is needed for Visual Studio compiler
     AsyncFunction<int()> produce = make_async(prod_pool, [&state]() {
         int current = 0;
         for(;;) {
