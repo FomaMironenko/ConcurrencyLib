@@ -28,7 +28,7 @@ template <class Ret, class Fun, class ...Args>
 friend inline AsyncResult<Ret> call_async(ThreadPool& pool, Fun&& fun, Args &&...args);
 
 private:
-    AsyncResult(ThreadPool* pool, Future<T> fut)
+    AsyncResult(ThreadPool* pool, Future<PhysicalType<T>> fut)
         : fut_(std::move(fut))
         , parent_pool_(pool)
     {    }
@@ -59,15 +59,19 @@ public:
     std::enable_if_t<is_async_result<U>::value, T> flatten();
 
     // Create a ready-to-use AsyncResult filled with value
-    static AsyncResult instant(T value);
+    template <class U = T>
+    static std::enable_if_t< std::is_same_v<U, void>, AsyncResult<T>> instant();
+
+    template <class U = T>
+    static std::enable_if_t<!std::is_same_v<U, void>, AsyncResult<U>> instant(U value);
 
     // Create a ready-to-use AsyncResult filled with error
-    static AsyncResult instantFail(std::exception_ptr error);
+    static AsyncResult<T> instantFail(std::exception_ptr error);
 
     // Continue task execution in parent ThreadPool.
     // Invalidates the object.
     template <class Ret>
-    AsyncResult<Ret> then(std::function<Ret(T)> func, ThenPolicy policy = ThenPolicy::Lazy);
+    AsyncResult<Ret> then(FunctionType<Ret, T> func, ThenPolicy policy = ThenPolicy::Lazy);
 
     // Handle an error if one of this type exists.
     // Invalidates the object.
@@ -79,68 +83,7 @@ public:
     AsyncResult<T> in(ThreadPool& pool);
 
 private:
-    Future<T> fut_;
-    ThreadPool* parent_pool_;
-};
-
-
-template <>
-class AsyncResult<void> {
-
-friend class ThreadPool;
-template <class U> friend class AsyncResult;
-template <class U> friend class GroupAll;
-template <class U> friend class FlattenSubscription;
-template <class Ret, class Fun, class ...Args>
-friend inline AsyncResult<Ret> call_async(ThreadPool& pool, Fun&& fun, Args &&...args);
-
-private:
-    AsyncResult(ThreadPool* pool, Future<Void> fut)
-        : fut_(std::move(fut))
-        , parent_pool_(pool)
-    {    }
-
-public:
-    AsyncResult() : fut_(), parent_pool_(nullptr) { }
-    AsyncResult(const AsyncResult&) = delete;
-    AsyncResult(AsyncResult&&) = default;
-    AsyncResult& operator=(AsyncResult&&) = default;
-    AsyncResult& operator=(const AsyncResult&) = delete;
-
-    // Synchronously wait for the result to be produced.
-    // Does not invalidate the object.
-    void wait();
-
-    // Synchronously wait for result.
-    // Invalidates the object.
-    void get();
-
-    // Converts AsyncResult to std::furute
-    // Invalidates the object.
-    std::future<void> to_std();
-
-    // Create a ready-to-use AsyncResult<void>
-    static AsyncResult instant();
-
-    // Create a ready-to-use AsyncResult filled with error
-    static AsyncResult instantFail(std::exception_ptr error);
-
-    // Continue task execution in parent ThreadPool.
-    // Invalidates the object.
-    template <class Ret>
-    AsyncResult<Ret> then(std::function<Ret()> func, ThenPolicy policy = ThenPolicy::Lazy);
-
-    // Handle an error if one of this type exists.
-    // Invalidates the object.
-    template <class Err>
-    AsyncResult<void> catch_err(ErrorHandler<void, Err> handler);
-
-    // Schedules subsequent execution to another ThreadPool.
-    // Invalidates the object.
-    AsyncResult<void> in(ThreadPool& pool);
-
-private:
-    Future<Void> fut_;
+    Future<PhysicalType<T>> fut_;
     ThreadPool* parent_pool_;
 };
 
@@ -154,17 +97,13 @@ void AsyncResult<T>::wait() {
     fut_.wait();
 }
 
-void AsyncResult<void>::wait() {
-    fut_.wait();
-}
-
 template <class T>
 T AsyncResult<T>::get() {
-    return fut_.get();
-}
-
-void AsyncResult<void>::get() {
-    fut_.get();
+    if constexpr (std::is_same_v<T, void>) {
+        fut_.get();
+    } else {
+        return fut_.get();
+    }
 }
 
 
@@ -202,34 +141,29 @@ std::future<T> AsyncResult<T>::to_std() {
     return std_future;
 }
 
-std::future<void> AsyncResult<void>::to_std() {
-    auto std_promise = std::promise<void>();
-    auto std_future = std_promise.get_future();
-    fut_.subscribe(std::make_unique<ToStdSubscription<void> >(std::move(std_promise)));
-    return std_future;
-}
-
 
 // ========================================================= //
 // ==================== INSTANT RESULTS ==================== //
 // ========================================================= //
 
 template <class T>
-AsyncResult<T> AsyncResult<T>::instant(T value) {
-    return AsyncResult<T>{nullptr, Future<T>::instantValue(std::move(value))};
-}
-
-AsyncResult<void> AsyncResult<void>::instant() {
+template <class U>
+std::enable_if_t<std::is_same_v<U, void>, AsyncResult<T>> AsyncResult<T>::instant() {
+    static_assert(std::is_same_v<T, U>, "Cannot call instant with non-default template argument");
     return AsyncResult<void>{nullptr, Future<Void>::instantValue(Void{})};
 }
 
 template <class T>
-AsyncResult<T> AsyncResult<T>::instantFail(std::exception_ptr error) {
-    return AsyncResult<T>{nullptr, Future<T>::instantError(std::move(error))};
+template <class U>
+std::enable_if_t<!std::is_same_v<U, void>, AsyncResult<U>> AsyncResult<T>::instant(U value) {
+    static_assert(std::is_same_v<T, U>, "Cannot call instant with non-default template argument");
+    return AsyncResult<U>{nullptr, Future<U>::instantValue(std::move(value))};
 }
 
-AsyncResult<void> AsyncResult<void>::instantFail(std::exception_ptr error) {
-    return AsyncResult<void>{nullptr, Future<Void>::instantError(std::move(error))};
+
+template <class T>
+AsyncResult<T> AsyncResult<T>::instantFail(std::exception_ptr error) {
+    return AsyncResult<T>{nullptr, Future<PhysicalType<T>>::instantError(std::move(error))};
 }
 
 
@@ -240,10 +174,6 @@ AsyncResult<void> AsyncResult<void>::instantFail(std::exception_ptr error) {
 template <class T>
 AsyncResult<T> AsyncResult<T>::in(ThreadPool& pool) {
     return AsyncResult<T>{&pool, std::move(fut_)};
-}
-
-AsyncResult<void> AsyncResult<void>::in(ThreadPool& pool) {
-    return AsyncResult<void>{&pool, std::move(fut_)};
 }
 
 
@@ -297,14 +227,6 @@ AsyncResult<T> AsyncResult<T>::catch_err(ErrorHandler<T, Err> handler) {
     return AsyncResult<T>{parent_pool_, std::move(future)};
 }
 
-template <class Err>
-AsyncResult<void> AsyncResult<void>::catch_err(ErrorHandler<void, Err> handler) {
-    auto [promise, future] = contract<PhysicalType<void> >();
-    fut_.subscribe(std::make_unique<CatchSubscription<void, Err> >(
-        std::move(handler), std::move(promise)));
-    return AsyncResult<void>{parent_pool_, std::move(future)};
-}
-
 
 // ============================================== //
 // ==================== THEN ==================== //
@@ -354,17 +276,9 @@ private:
 
 template <class T>
 template <class Ret>
-AsyncResult<Ret> AsyncResult<T>::then(std::function<Ret(T)> func, ThenPolicy policy) {
+AsyncResult<Ret> AsyncResult<T>::then(FunctionType<Ret, T> func, ThenPolicy policy) {
     auto [promise, future] = contract<PhysicalType<Ret> >();
     fut_.subscribe(std::make_unique<ThenSubscription<Ret, T> >(
-        std::move(func), std::move(promise), parent_pool_, policy));
-    return AsyncResult<Ret>{parent_pool_, std::move(future)};
-}
-
-template <class Ret>
-AsyncResult<Ret> AsyncResult<void>::then(std::function<Ret()> func, ThenPolicy policy) {
-    auto [promise, future] = contract<PhysicalType<Ret> >();
-    fut_.subscribe(std::make_unique<ThenSubscription<Ret, void> >(
         std::move(func), std::move(promise), parent_pool_, policy));
     return AsyncResult<Ret>{parent_pool_, std::move(future)};
 }

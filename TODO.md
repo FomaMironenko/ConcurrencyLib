@@ -1,5 +1,7 @@
 - [x] Split ThreadPool and AsyncResult
-- [ ] Simplify Void logic
+- [x] Simplify Void logic
+- [ ] Prevent type collisions in AsyncResult::instant
+- [ ] Simplify PhysicalType logic
 - [x] Add AsyncResult::value instead of weird constructor
 - [x] Don't pass ThreadPool to GroupAll
 - [x] Enable AsyncResult and GroupAll.merge without ThreadPool

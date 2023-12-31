@@ -520,7 +520,7 @@ DEFINE_TEST(test_then_starvation) {
     std::unordered_map<std::thread::id, size_t> worker_cnt;
     constexpr size_t num_iters = 100'000;
 
-    AsyncResult<size_t> fut = AsyncResult<size_t>::instant(0).in(pool);
+    AsyncResult<size_t> fut = AsyncResult<size_t>::instant(0ul).in(pool);
     for (size_t iter = 0; iter < num_iters; ++iter) {
         fut = fut.then<size_t>([&worker_cnt](size_t val) mutable {
             // Synchronized via continuation
