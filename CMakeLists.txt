@@ -4,9 +4,15 @@ project (ConcurrencyProj LANGUAGES CXX)
 set (CMAKE_CXX_STANDARD 17)
 
 
-# Strict compile checks
-SET (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wall -pedantic -Wextra")
-SET (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror -Wall -pedantic -Wextra")
+if (WIN32)
+    # Strict compile checks for Visual Studio compiler
+    # SET (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -WX -Wall")
+    # SET (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -WX -Wall")
+else ()
+    # Strict compile checks
+    SET (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wall -pedantic -Wextra")
+    SET (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror -Wall -pedantic -Wextra")
+endif()
 
 
 # Sanitizer builds configuration: available builds are:
