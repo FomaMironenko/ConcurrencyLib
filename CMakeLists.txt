@@ -6,8 +6,8 @@ set (CMAKE_CXX_STANDARD 17)
 
 if (WIN32)
     # Strict compile checks for Visual Studio compiler
-    # SET (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -WX -Wall")
-    # SET (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -WX -Wall")
+    SET (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -WX -W3")
+    SET (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -WX -W3")
 else ()
     # Strict compile checks
     SET (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wall -pedantic -Wextra")
