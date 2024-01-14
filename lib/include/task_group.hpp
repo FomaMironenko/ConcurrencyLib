@@ -187,8 +187,8 @@ Result<T>* GroupState<T>::attach() {
 
 template <class T>
 void GroupState<T>::detach() {
-    int num_pending = num_pending_.load(std::memory_order_acquire);
-    int group_type = group_type_.load(std::memory_order_acquire);
+    auto num_pending = num_pending_.load(std::memory_order_acquire);
+    auto group_type = group_type_.load(std::memory_order_acquire);
     // subscribeToAll already executed
     if (group_type == kReadyAll) {
         Result<T>* fst_error = first_error_.load(std::memory_order_acquire);
@@ -213,23 +213,23 @@ void GroupState<T>::detach() {
 
 
 // ================================================== //
-// ==================== GroupAll ==================== //
+// ==================== TaskGroup ==================== //
 // ================================================== //
 
 template <class T>
-class GroupAll {
+class TaskGroup {
 
 template <class U> friend class JoinSubscription;
 
 public:
-    GroupAll() {
+    TaskGroup() {
         auto [promise, future] = contract<GroupAllType<T> >();
         state_ = std::make_shared<details::GroupState<T> >();
     }
 
     void join(AsyncResult<T> result);
 
-    AsyncResult<GroupAllType<T>> merge();
+    AsyncResult<GroupAllType<T>> all();
     AsyncResult<GroupFirstType<T> > first();
 
 private:
@@ -272,7 +272,7 @@ private:
 };
 
 template <class T>
-void GroupAll<T>::join(AsyncResult<T> res) {
+void TaskGroup<T>::join(AsyncResult<T> res) {
     res.fut_.subscribe(std::make_unique<JoinSubscription<T>>(state_));
 }
 
@@ -282,9 +282,9 @@ void GroupAll<T>::join(AsyncResult<T> res) {
 // =============================================== //
 
 template <class T>
-AsyncResult<GroupAllType<T> > GroupAll<T>::merge() {
+AsyncResult<GroupAllType<T> > TaskGroup<T>::all() {
     if (!state_) {
-        throw std::runtime_error("Trying to merge GroupAll twice");
+        throw std::runtime_error("Trying to merge all TaskGroup twice");
     }
     auto future = state_->subscribeToAll();
     state_->detach();
@@ -293,9 +293,9 @@ AsyncResult<GroupAllType<T> > GroupAll<T>::merge() {
 }
 
 template <class T>
-AsyncResult<GroupFirstType<T> > GroupAll<T>::first() {
+AsyncResult<GroupFirstType<T> > TaskGroup<T>::first() {
     if (!state_) {
-        throw std::runtime_error("Trying to merge GroupAll twice");
+        throw std::runtime_error("Trying to merge first TaskGroup twice");
     }
     auto future = state_->subscribeToFirst();
     state_->detach();

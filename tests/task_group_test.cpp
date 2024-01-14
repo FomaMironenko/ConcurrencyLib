@@ -21,7 +21,7 @@ using namespace std::chrono_literals;
 
 DEFINE_TEST(just_works) {
     ThreadPool pool(4);
-    GroupAll<int> tg;
+    TaskGroup<int> tg;
     // Order of values in result only depends on the order of join and
     // does not depend on when the value was physically produced.
     tg.join(call_async<int>(pool, []() {
@@ -32,7 +32,7 @@ DEFINE_TEST(just_works) {
     tg.join(call_async<int>(pool, []() { return 2; }));
     tg.join(call_async<int>(pool, []() { return 3; }));
     tg.join(call_async<int>(pool, []() { return 4; }));
-    auto results = tg.merge().get();
+    auto results = tg.all().get();
     std::vector<int> expected = {1, 2, 3, 4};
     ASSERT_EQ(results, expected);
 }
@@ -52,11 +52,11 @@ struct WorstType {
 
 DEFINE_TEST(worst_type) {
     ThreadPool pool(1);
-    GroupAll<WorstType> tg;
+    TaskGroup<WorstType> tg;
     auto async_make_unique = make_async(pool, [](int val) { return WorstType(val); });
     tg.join(async_make_unique(21));
     tg.join(async_make_unique(42));
-    auto results = tg.merge().get();
+    auto results = tg.all().get();
     ASSERT_EQ(results.size(), 2u);
     ASSERT_EQ(results[0].val, 21);
     ASSERT_EQ(results[1].val, 42);
@@ -65,7 +65,7 @@ DEFINE_TEST(worst_type) {
 
 DEFINE_TEST(void_group_all) {
     ThreadPool pool(4);
-    GroupAll<void> tg;
+    TaskGroup<void> tg;
     auto increment = make_async(pool, [](std::atomic<int>& state) { state.fetch_add(1); });
 
     std::atomic<int> state { 0 };
@@ -73,7 +73,7 @@ DEFINE_TEST(void_group_all) {
     for (int i = 0; i < NUM_ITERS; ++i) {
         tg.join( increment(std::ref(state)) );
     }
-    AsyncResult<void> all = tg.merge();
+    AsyncResult<void> all = tg.all();
     all.wait();
     ASSERT_EQ(state.load(), NUM_ITERS);
 }
@@ -81,7 +81,7 @@ DEFINE_TEST(void_group_all) {
 
 DEFINE_TEST(continuation) {
     ThreadPool pool(2);
-    GroupAll<int> tg;
+    TaskGroup<int> tg;
     auto pow2 = [](int val) { return val * val; };
     AsyncFunction<int(int)> async_pow2 = make_async(pool, pow2);
 
@@ -90,7 +90,7 @@ DEFINE_TEST(continuation) {
         expected += pow2(val);
         tg.join( async_pow2(val) );
     }
-    auto mapped = tg.merge().then<int>([] (std::vector<int> vals) {
+    auto mapped = tg.all().then<int>([] (std::vector<int> vals) {
         int sum = 0;
         for (const int val : vals) sum += val;
         return sum;
@@ -109,13 +109,13 @@ DEFINE_TEST(error_in_group_all) {
         return y;
     });
     for (int iter = 0; iter < NUM_ITERS; ++iter) {
-        GroupAll<int> tg;
+        TaskGroup<int> tg;
         for (int elt = 0; elt < NUM_ITERS; ++elt) {
             if (elt == iter) {
                 tg.join(hazardous_async(iter, elt));
             }
         }
-        auto res = tg.merge();
+        auto res = tg.all();
         res.wait();
         try {
             res.get();
@@ -129,19 +129,19 @@ DEFINE_TEST(error_in_group_all) {
 
 DEFINE_TEST(finish_before_merge) {
     ThreadPool pool(2);
-    GroupAll<bool> tg;
+    TaskGroup<bool> tg;
     tg.join(call_async<bool>(pool, []() { return true; }));
     tg.join(call_async<bool>(pool, []() { return true; }));
     tg.join(call_async<bool>(pool, []() { return true; }));
     std::this_thread::sleep_for(50ms);
-    auto res = tg.merge();
+    auto res = tg.all();
     ASSERT_EQ(res.get().size(), 3u);
 }
 
 
 DEFINE_TEST(finish_after_merge) {
     ThreadPool pool(2);
-    auto tg = std::make_unique<GroupAll<bool>>();
+    auto tg = std::make_unique<TaskGroup<bool>>();
     AsyncFunction<bool()> async_fun = make_async(pool, []() {
         std::this_thread::sleep_for(50ms);
         return true;
@@ -149,7 +149,7 @@ DEFINE_TEST(finish_after_merge) {
     tg->join(async_fun());
     tg->join(async_fun());
     tg->join(async_fun());
-    AsyncResult<std::vector<bool> > res = tg->merge();
+    AsyncResult<std::vector<bool> > res = tg->all();
     #ifndef WIN32
     asm("");  // prohibit reordering
     #endif
@@ -190,13 +190,13 @@ DEFINE_TEST(prod_cons_pools) {
         return current - 1;
     });
 
-    GroupAll<int> tg;
+    TaskGroup<int> tg;
     constexpr int NUM_ITERS = 100'000;
     // Two pools guarantee there's no deadlock
     for (int iter = 0; iter < NUM_ITERS; ++iter) tg.join(produce());
     // Consumers would have never started if they were submitted to the same pool as producers
     for (int iter = 0; iter < NUM_ITERS; ++iter) tg.join(consume());
-    std::vector<int> history = tg.merge().get();
+    std::vector<int> history = tg.all().get();
 
     ASSERT(state.load() == 0);
     std::map<int, int> freq;
@@ -224,9 +224,9 @@ DEFINE_TEST(perfect_parallelization) {
     });
 
     Timer timer;
-    GroupAll<Void> tg;
+    TaskGroup<Void> tg;
     for (int i_task = 0; i_task < NUM_TASKS; ++i_task) tg.join(async_job());
-    tg.merge().get();
+    tg.all().get();
     double elapsedMs = timer.elapsedMilliseconds();
 
     double coef = elapsedMs / (NUM_CYCLES * jobMs);
@@ -238,11 +238,11 @@ DEFINE_TEST(perfect_parallelization) {
 
 
 int main() {
-    RUN_TEST(just_works, "GroupAll just works");
-    RUN_TEST(worst_type, "GroupAll with moveonly & non-default-constructible type")
-    RUN_TEST(void_group_all, "GroupAll<void> just works");
+    RUN_TEST(just_works, "TaskGroup just works");
+    RUN_TEST(worst_type, "TaskGroup with moveonly & non-default-constructible type")
+    RUN_TEST(void_group_all, "TaskGroup<void> just works");
     RUN_TEST(continuation, "Continuation");
-    RUN_TEST(error_in_group_all, "Error in GroupAll");
+    RUN_TEST(error_in_group_all, "Error in TaskGroup");
     RUN_TEST(finish_before_merge, "Finish before merge");
     RUN_TEST(finish_after_merge, "Finish after merge");
     RUN_TEST(prod_cons_pools, "Producer and consumer pools in single TaskGroup");

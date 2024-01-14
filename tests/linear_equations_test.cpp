@@ -30,12 +30,12 @@ ColumnVec<double> resolveViaIterations(const Matrix<T>& mtx, const ColumnVec<T> 
     auto asyncComputeElement = make_async(pool, computeElement<T>);
     ColumnVec<double> result(size);
     for (int iter = 0; iter < 1000; ++iter) {
-        GroupAll<double> vector_elements;
+        TaskGroup<double> vector_elements;
         for (int64_t idx = 0; idx < size; ++idx) {
             vector_elements.join( asyncComputeElement(mtx[idx], std::cref(result), rhs[idx], idx) );
         }
         vector_elements
-            .merge()
+            .all()
             .in(pool)
             .template then<void>([&result](std::vector<T> updated) {
                 if (static_cast<int64_t>(updated.size()) != result.size()) {
@@ -66,13 +66,13 @@ ColumnVec<double> resolveViaConjugateGrads(const Matrix<T>& mtx, const ColumnVec
     ColumnVec<double> x(size), r = rhs, z = rhs;
 
     for (int iter = 0; iter < size * 2; ++iter) {
-        GroupAll<double> mtx_mul_tasks;
+        TaskGroup<double> mtx_mul_tasks;
         for (int idx = 0; idx < size; ++idx) {
             mtx_mul_tasks.join( asyncDot(mtx[idx], r) );
         }
         double prev_rr = Linalg::dot(r, r);
         ColumnVec<double> Az = mtx_mul_tasks
-            .merge()
+            .all()
             .then<ColumnVec<double>>([](std::vector<double> res) {
                 return ColumnVec<double>(std::move(res));
             }, ThenPolicy::NoSchedule)

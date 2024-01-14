@@ -44,10 +44,10 @@ AsyncResult<void> divideAndSort(Iterator begin, Iterator end, ThreadPool& pool) 
     return call_async<std::pair<Iterator, Iterator>>(pool,
             split<Iterator>, begin, end
         ).template then<AsyncResult<void>>([begin, end, &pool](std::pair<Iterator, Iterator> middle) {
-            GroupAll<void> sort_halves;
+            TaskGroup<void> sort_halves;
             sort_halves.join(divideAndSort(begin, middle.first, pool));
             sort_halves.join(divideAndSort(middle.second, end, pool));
-            return sort_halves.merge();
+            return sort_halves.all();
         }).flatten();
 }
 
