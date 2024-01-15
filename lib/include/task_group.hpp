@@ -122,14 +122,12 @@ void GroupState<T>::produceFirst() {
             assert(first_val_result->val);
             promise_first_->setValue(std::move(*first_val_result->val));
         }
+        return;
     }
     // Check for errors
     Result<T>* last_err_result = last_error_.load(std::memory_order_relaxed);
-    if (last_err_result) {
-        promise_first_->setError(last_err_result->err);
-        return;
-    }
-    assert(false);
+    assert(last_err_result);
+    promise_first_->setError(last_err_result->err);
 }
 
 
@@ -150,7 +148,7 @@ void GroupState<T>::registerError(Result<T>* result) {
         details::Result<T>* expected = nullptr;
         first_error_.compare_exchange_strong(expected, result, std::memory_order_acq_rel);
     }
-    first_error_.store(result, std::memory_order_release);
+    last_error_.store(result, std::memory_order_release);
     num_pending_.fetch_add(-1, std::memory_order_acq_rel);
 }
 
