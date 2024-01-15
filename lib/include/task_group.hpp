@@ -288,7 +288,7 @@ AsyncResult<GroupAllType<T> > TaskGroup<T>::all() {
     }
     auto future = state_->subscribeToAll();
     state_->detach();
-    state_.reset();
+    state_ = std::make_shared<details::GroupState<T> >();
     return {nullptr, std::move(future)};
 }
 
@@ -299,6 +299,6 @@ AsyncResult<GroupFirstType<T> > TaskGroup<T>::first() {
     }
     auto future = state_->subscribeToFirst();
     state_->detach();
-    state_.reset();
+    state_ = std::make_shared<details::GroupState<T> >();
     return {nullptr, std::move(future)};
 }
