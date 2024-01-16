@@ -3,9 +3,9 @@
 #include <random>
 
 #include "utils/logger.hpp"
-#include "utils/timer.hpp"
-#include "utils/tester.hpp"
-#include "utils/table.hpp"
+#include "test_utils/timer.hpp"
+#include "test_utils/tester.hpp"
+#include "test_utils/table.hpp"
 
 #include "async_function.hpp"
 #include "thread_pool.hpp"
@@ -44,10 +44,10 @@ AsyncResult<void> divideAndSort(Iterator begin, Iterator end, ThreadPool& pool) 
     return call_async<std::pair<Iterator, Iterator>>(pool,
             split<Iterator>, begin, end
         ).template then<AsyncResult<void>>([begin, end, &pool](std::pair<Iterator, Iterator> middle) {
-            GroupAll<void> sort_halves;
+            TaskGroup<void> sort_halves;
             sort_halves.join(divideAndSort(begin, middle.first, pool));
             sort_halves.join(divideAndSort(middle.second, end, pool));
-            return sort_halves.merge();
+            return sort_halves.all();
         }).flatten();
 }
 

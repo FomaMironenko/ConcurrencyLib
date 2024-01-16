@@ -1,7 +1,7 @@
 - [x] Split ThreadPool and AsyncResult
 - [x] Simplify Void logic
 - [ ] Prevent type collisions in AsyncResult::instant
-- [ ] Simplify PhysicalType logic
+- [x] Simplify PhysicalType logic
 - [x] Add AsyncResult::value instead of weird constructor
 - [x] Don't pass ThreadPool to GroupAll
 - [x] Enable AsyncResult and GroupAll.merge without ThreadPool
@@ -17,3 +17,6 @@
 - [ ] Don't reallocate memory for ForwardSubscription in FlattenSubscription::resolveValue. Possibly just exchange shared state.
 - [ ] Move all subscription classes to details
 - [ ] Fix issue with two pools destruction in `in_does_transfer` test
+- [x] Implement TaskGroup::first
+- [ ] Enable thread pool task cancellation and add detach and reject methods to AsyncResult
+- [ ] Cancell unneeded tasks in TaskGroup

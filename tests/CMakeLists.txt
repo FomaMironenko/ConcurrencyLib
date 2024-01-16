@@ -1,7 +1,9 @@
 cmake_minimum_required(VERSION 3.7)
 
 function (add_test TEST_NAME TEST_FILE)
-    add_executable(${TEST_NAME} ${TEST_FILE})
+    add_executable(${TEST_NAME} ${TEST_FILE}
+        test_utils/table.cpp
+    )
     target_link_libraries(${TEST_NAME} ConcurrencyLib)
 endfunction()
 

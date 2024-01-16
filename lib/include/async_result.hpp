@@ -22,7 +22,7 @@ class AsyncResult {
 
 friend class ThreadPool;
 template <class U> friend class AsyncResult;
-template <class U> friend class GroupAll;
+template <class U> friend class TaskGroup;
 template <class U> friend class FlattenSubscription;
 template <class Ret, class Fun, class ...Args>
 friend inline AsyncResult<Ret> call_async(ThreadPool& pool, Fun&& fun, Args &&...args);

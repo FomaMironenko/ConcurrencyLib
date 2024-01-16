@@ -3,7 +3,8 @@
 #include <string>
 #include <iostream>
 #include <atomic>
-#include "logger.hpp"
+
+#include "utils/logger.hpp"
 
 
 inline std::atomic<size_t> __NUM_FAILS { 0 };

@@ -2,9 +2,9 @@
 #include <functional>
 #include <random>
 
-#include "utils/timer.hpp"
-#include "utils/tester.hpp"
-#include "utils/matrix.hpp"
+#include "test_utils/timer.hpp"
+#include "test_utils/tester.hpp"
+#include "test_utils/matrix.hpp"
 
 #include "async_function.hpp"
 #include "thread_pool.hpp"
@@ -56,12 +56,12 @@ Matrix<int64_t> parallelMultiply(const Matrix<int64_t>& lhs, const Matrix<int64_
     }
     // Asynchronously work out result
     auto asyncComputeRow = make_async(tp, multiplyRowByMtx);
-    GroupAll<ColumnVec<int64_t>> out_rows;
+    TaskGroup<ColumnVec<int64_t>> out_rows;
     for (int64_t row = 0; row < rows; ++row) {
         out_rows.join(asyncComputeRow(lhs[row], std::cref(rhs_t)));
     }
     return out_rows
-        .merge()
+        .all()
         .then<Matrix<int64_t>>([rows, cols](std::vector<ColumnVec<int64_t>> prod_rows) {
             Matrix<int64_t> result(rows, cols);
             if (static_cast<int64_t>(prod_rows.size()) != rows) {
