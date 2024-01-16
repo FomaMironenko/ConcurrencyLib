@@ -194,7 +194,7 @@ DEFINE_TEST(error_in_group_first) {
         try {
             int good_val = res.get();
             ASSERT(good_val == iter);
-        } catch (int) {
+        } catch (...) {
             FAIL();
         }
     }
@@ -206,7 +206,7 @@ DEFINE_TEST(error_in_group_first) {
     try {
         res.get();
         FAIL();
-    } catch (int) {
+    } catch (...) {
         // pass
     }
 }

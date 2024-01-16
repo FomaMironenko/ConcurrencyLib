@@ -82,7 +82,7 @@ void GroupState<T>::produceAll() {
     // Check for errors
     Result<T>* fst_err_result = first_error_.load(std::memory_order_relaxed);
     if (fst_err_result) {
-        promise_all_->setError(fst_err_result->err);
+        promise_all_->setError(std::move(fst_err_result->err));
         return;
     }
     // Fill in values
@@ -104,7 +104,7 @@ void GroupState<void>::produceAll() {
     assert(promise_all_.has_value());
     Result<void>* fst_err_result = first_error_.load(std::memory_order_relaxed);
     if (fst_err_result) {
-        promise_all_->setError(fst_err_result->err);
+        promise_all_->setError(std::move(fst_err_result->err));
     } else {
         promise_all_->setValue(Void{});
     }
@@ -127,7 +127,7 @@ void GroupState<T>::produceFirst() {
     // Check for errors
     Result<T>* last_err_result = last_error_.load(std::memory_order_relaxed);
     assert(last_err_result);
-    promise_first_->setError(last_err_result->err);
+    promise_first_->setError(std::move(last_err_result->err));
 }
 
 
