@@ -7,8 +7,8 @@
 #include <mutex>
 #include <condition_variable>
 
-#include "subscription.hpp"
 #include "utils/logger.hpp"
+#include "subscription.hpp"
 
 
 // Forward declare

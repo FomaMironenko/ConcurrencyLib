@@ -15,8 +15,9 @@
 #include "test_utils/timer.hpp"
 #include "test_utils/tester.hpp"
 
-#include "thread_pool.hpp"
-#include "async_function.hpp"
+#include "async/function.hpp"
+#include "tp/thread_pool.hpp"
+
 
 using namespace std::chrono_literals;
 

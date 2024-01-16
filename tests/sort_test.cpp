@@ -7,9 +7,9 @@
 #include "test_utils/tester.hpp"
 #include "test_utils/table.hpp"
 
-#include "async_function.hpp"
-#include "thread_pool.hpp"
-#include "task_group.hpp"
+#include "async/function.hpp"
+#include "async/group.hpp"
+#include "tp/thread_pool.hpp"
 
 
 namespace details {

@@ -6,9 +6,9 @@
 #include "test_utils/tester.hpp"
 #include "test_utils/matrix.hpp"
 
-#include "async_function.hpp"
-#include "thread_pool.hpp"
-#include "task_group.hpp"
+#include "async/function.hpp"
+#include "async/group.hpp"
+#include "tp/thread_pool.hpp"
 
 
 Matrix<int64_t> simpleMultiply(const Matrix<int64_t>& lhs, const Matrix<int64_t>& rhs) {

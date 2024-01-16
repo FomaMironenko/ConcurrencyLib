@@ -7,9 +7,10 @@
 #include <optional>
 #include <exception>
 
-#include "../private/shared_state.hpp"
-#include "../private/type_traits.hpp"
-#include "async_result.hpp"
+#include "../../private/shared_state.hpp"
+#include "../../private/type_traits.hpp"
+
+#include "async/result.hpp"
 
 
 // =============================================== //

@@ -7,8 +7,9 @@
 
 #include "../private/async_task.hpp"
 #include "../private/type_traits.hpp"
+
 #include "contract.hpp"
-#include "thread_pool.hpp"
+#include "tp/thread_pool.hpp"
 
 
 enum class ThenPolicy { Lazy, Eager, NoSchedule };

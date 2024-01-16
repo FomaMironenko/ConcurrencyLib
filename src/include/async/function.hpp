@@ -4,8 +4,8 @@
 #include <functional>
 #include <type_traits>
 
-#include "async_result.hpp"
-#include "thread_pool.hpp"
+#include "async/result.hpp"
+#include "tp/thread_pool.hpp"
 
 
 template <class Ret, class Fun, class ...Args>
