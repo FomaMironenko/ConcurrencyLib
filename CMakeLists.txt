@@ -70,7 +70,7 @@ endif()
 
 
 
-include_directories(lib/include)
+include_directories(src/include)
 
-add_subdirectory(lib)
+add_subdirectory(src)
 add_subdirectory(tests)

@@ -6,7 +6,7 @@ include_directories(include private)
 
 add_library (
     ConcurrencyLib
-    "src/thread_pool.cpp"
+    "lib/thread_pool.cpp"
 )
 
 if (UNIX)
