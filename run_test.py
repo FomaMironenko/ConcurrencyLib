@@ -24,23 +24,23 @@ test_dir = 'tests'
 builds = {
     'asan': {
         'type':     'Asan',
-        'dir':      'build_asan',
+        'dir':      'build/asan',
     },
     'tsan': {
         'type':     'Tsan',
-        'dir':      'build_tsan',
+        'dir':      'build/tsan',
     },
     'ubsan': {
         'type':     'UBsan',
-        'dir':      'build_ubsan',
+        'dir':      'build/ubsan',
     },
     'asan_ubsan': {
         'type':     'AsanWithUBsan',
-        'dir':      'build_ub_asan',
+        'dir':      'build/ub_asan',
     },
     'tsan_ubsan': {
         'type':     'TsanWithUBsan',
-        'dir':      'build_ub_tsan',
+        'dir':      'build/ub_tsan',
     }
 }
 
@@ -64,7 +64,7 @@ def run_one_build(cwd, build):
     os.chdir(build_dir)
     
     # Build project
-    CMAKE_COMMAND = f'cmake -DCMAKE_BUILD_TYPE={build["type"]} ../'
+    CMAKE_COMMAND = f'cmake -DCMAKE_BUILD_TYPE={build["type"]} {cwd}'
     ret = os.system(CMAKE_COMMAND)
     if ret != 0:
         raise Exception('ERROR: unexpected cmake error')
