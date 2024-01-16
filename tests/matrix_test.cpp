@@ -2,9 +2,9 @@
 #include <functional>
 #include <random>
 
-#include "utils/timer.hpp"
-#include "utils/tester.hpp"
-#include "utils/matrix.hpp"
+#include "test_utils/timer.hpp"
+#include "test_utils/tester.hpp"
+#include "test_utils/matrix.hpp"
 
 #include "async_function.hpp"
 #include "thread_pool.hpp"

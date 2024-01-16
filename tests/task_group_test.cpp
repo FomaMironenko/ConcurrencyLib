@@ -9,8 +9,8 @@
 #include <map>
 
 #include "utils/logger.hpp"
-#include "utils/timer.hpp"
-#include "utils/tester.hpp"
+#include "test_utils/timer.hpp"
+#include "test_utils/tester.hpp"
 
 #include "thread_pool.hpp"
 #include "async_function.hpp"

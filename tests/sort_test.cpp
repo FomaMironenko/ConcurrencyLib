@@ -3,9 +3,9 @@
 #include <random>
 
 #include "utils/logger.hpp"
-#include "utils/timer.hpp"
-#include "utils/tester.hpp"
-#include "utils/table.hpp"
+#include "test_utils/timer.hpp"
+#include "test_utils/tester.hpp"
+#include "test_utils/table.hpp"
 
 #include "async_function.hpp"
 #include "thread_pool.hpp"
