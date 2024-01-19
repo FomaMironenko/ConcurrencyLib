@@ -6,9 +6,9 @@
 #include <stdexcept>
 #include <functional>
 
-#include "../private/subscription.hpp"
 #include "../private/shared_state.hpp"
 #include "../private/type_traits.hpp"
+#include "../private/subscription/simple_sub.hpp"
 
 
 // Forward declare
@@ -93,38 +93,6 @@ Contract<T> contract() {
     return {Promise<T>{state}, Future<T>{state}};
 }
 
-
-// ============================================================== //
-// ==================== PROMISE SUBSCRIPTION ==================== //
-// ============================================================== //
-
-template <class Ret, class Arg>
-class PipeSubscription : public ISubscription<PhysicalType<Arg> > {
-public:
-    PipeSubscription(Promise<Ret> promise)
-        : promise_(std::move(promise)) {   }
-
-    virtual void resolveError(std::exception_ptr err, ResolvedBy) override {
-        promise_.setError(std::move(err));
-    }
-
-protected:
-    Promise<Ret> promise_;
-};
-
-template <class T>
-class ForwardSubscription : public PipeSubscription<T, T> {
-public:
-    ForwardSubscription(Promise<T> promise)
-        : PipeSubscription<T, T>(std::move(promise)) {  }
-
-    virtual void resolveValue(PhysicalType<T> value, ResolvedBy) override {
-        promise_.setValue(std::move(value));
-    }
-
-private:
-    using PipeSubscription<T, T>::promise_;
-};
 
 
 // ======================================================== //

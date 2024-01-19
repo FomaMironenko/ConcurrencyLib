@@ -5,17 +5,17 @@
 #include <future>
 #include <memory>
 
-#include "../private/async_task.hpp"
+#include "../private/async/task.hpp"
 #include "../private/type_traits.hpp"
+
+#include "../private/subscription/pipe_sub.hpp"
+#include "../private/subscription/forward_sub.hpp"
+#include "../private/subscription/catch_sub.hpp"
+#include "../private/subscription/then_sub.hpp"
+#include "../private/subscription/to_std_sub.hpp"
 
 #include "contract.hpp"
 #include "tp/thread_pool.hpp"
-
-
-enum class ThenPolicy { Lazy, Eager, NoSchedule };
-
-template <class T, class Err>
-using ErrorHandler = std::function<T(const Err&)>;
 
 
 template <class T>
@@ -113,28 +113,6 @@ T AsyncResult<T>::get() {
 // ================================================ //
 
 template <class T>
-class ToStdSubscription : public ISubscription<PhysicalType<T> > {
-public:
-    explicit ToStdSubscription(std::promise<T> std_promise)
-        : std_promise_(std::move(std_promise)) {   }
-
-    void resolveValue([[maybe_unused]] PhysicalType<T> val, ResolvedBy) override {
-        if constexpr (std::is_same_v<T, void>) {
-            std_promise_.set_value();
-        } else {
-            std_promise_.set_value(std::move(val));
-        }
-    }
-
-    void resolveError(std::exception_ptr err, ResolvedBy) override {
-        std_promise_.set_exception(err);
-    }
-
-private:
-    std::promise<T> std_promise_;
-};
-
-template <class T>
 std::future<T> AsyncResult<T>::to_std() {
     auto std_promise = std::promise<T>();
     auto std_future = std_promise.get_future();
@@ -182,43 +160,6 @@ AsyncResult<T> AsyncResult<T>::in(ThreadPool& pool) {
 // ==================== CATCH ==================== //
 // =============================================== //
 
-template <class T, class Err>
-class CatchSubscription : public PipeSubscription<T, T> {
-public:
-    explicit CatchSubscription(ErrorHandler<T, Err> handler, Promise<T> promise)
-        : PipeSubscription<T, T>(std::move(promise))
-        , handler_(std::move(handler)) {   }
-
-    void resolveValue(PhysicalType<T> val, ResolvedBy) override {
-        promise_.setValue(std::move(val));
-    }
-
-    void resolveError(std::exception_ptr err, ResolvedBy) override {
-        try {
-            std::rethrow_exception(err);
-        } catch (const Err& err) {
-            try {
-                // Don't trust user handler
-                if constexpr (std::is_same_v<T, void>) {
-                    handler_(err);
-                    promise_.setValue(Void{});
-                } else {
-                    T new_val = handler_(err);
-                    promise_.setValue(std::move(new_val));
-                }
-            } catch (...) {
-                promise_.setError(std::current_exception());
-            }
-        } catch (...) {
-            promise_.setError(std::current_exception());
-        }
-    }
-
-private:
-    using PipeSubscription<T, T>::promise_;
-    ErrorHandler<T, Err> handler_;
-};
-
 template <class T>
 template <class Err>
 AsyncResult<T> AsyncResult<T>::catch_err(ErrorHandler<T, Err> handler) {
@@ -232,48 +173,6 @@ AsyncResult<T> AsyncResult<T>::catch_err(ErrorHandler<T, Err> handler) {
 // ============================================== //
 // ==================== THEN ==================== //
 // ============================================== //
-
-template <class Ret, class Arg>
-class ThenSubscription : public PipeSubscription<Ret, Arg> {
-public:
-    ThenSubscription(FunctionType<Ret, Arg> func,
-                     Promise<Ret> promise,
-                     ThreadPool* continuation_pool,
-                     ThenPolicy policy
-    )
-        : PipeSubscription<Ret, Arg> (std::move(promise))
-        , func_(std::move(func))
-        , continuation_pool_(continuation_pool)
-        , execution_policy_(policy)
-    {
-        if (continuation_pool_ == nullptr && execution_policy_ != ThenPolicy::NoSchedule) {
-            LOG_WARN << "Enforcing ThenPolicy::NoSchedule due to empty thread pool";
-            execution_policy_ = ThenPolicy::NoSchedule;
-        }
-    }
-
-    void resolveValue([[maybe_unused]] PhysicalType<Arg> value, ResolvedBy by) override {
-        ThreadPool::Task pool_task = nullptr;
-        if constexpr (std::is_same_v<Arg, void>) {
-            pool_task = details::make_async_task<Ret>(std::move(func_), std::move(promise_));
-        } else {
-            pool_task = details::make_bound_async_task<Ret, Arg>(std::move(func_), std::move(promise_), std::move(value));
-        }
-        if (execution_policy_ == ThenPolicy::NoSchedule) {
-            pool_task->run();
-        } else if (execution_policy_ == ThenPolicy::Eager && by == ResolvedBy::kProducer) {
-            pool_task->run();
-        } else {
-            continuation_pool_->submit(std::move(pool_task));
-        }
-    }
-
-private:
-    using PipeSubscription<Ret, Arg>::promise_;
-    FunctionType<Ret, Arg> func_;
-    ThreadPool * continuation_pool_;
-    ThenPolicy execution_policy_;
-};
 
 template <class T>
 template <class Ret>

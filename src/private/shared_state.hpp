@@ -8,7 +8,7 @@
 #include <condition_variable>
 
 #include "utils/logger.hpp"
-#include "subscription.hpp"
+#include "subscription/base_sub.hpp"
 
 
 // Forward declare
