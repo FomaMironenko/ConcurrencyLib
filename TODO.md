@@ -9,6 +9,8 @@
 - [ ] Safely handle references to ThreadPool
 - [x] Add `wait`, `just_then`, `in` and `to_std_future` methods to AsyncResult
 - [x] Add `catch` method to AsyncResult
+- [ ] Add `catch_all` method to AsyncResult
+- [ ] Rename `then` to `map` and add `then` with `void()` callable
 - [x] Detect non-fatal sanitizer errors
 - [x] Inherit ThenSubscription from ProducerSubscription
 - [x] Fix flatten_void test
@@ -18,5 +20,5 @@
 - [x] Move all subscription classes to details
 - [ ] Fix issue with two pools destruction in `in_does_transfer` test
 - [x] Implement TaskGroup::first
-- [ ] Enable thread pool task cancellation and add detach and reject methods to AsyncResult
+- [ ] Enable thread pool task cancellation and add `detach` and `reject` methods to AsyncResult
 - [ ] Cancel unneeded tasks in TaskGroup

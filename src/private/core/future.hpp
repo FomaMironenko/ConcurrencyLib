@@ -37,10 +37,12 @@ public:
     // Create a ready-to-use Future filled with an exception.
     static Future instantError(std::exception_ptr error);
 
-    // Wait for the Promise to be resolved, but does not invalidate the Future.
+    // Wait for the Promise to be resolved.
+    // Does not invalidate the Future.
     void wait();
 
-    // Wait for the Promise to be resolved and return value. Invalidates the Future.
+    // Wait for the Promise to be resolved and return value.
+    // Invalidates the Future.
     PhysicalType<T> get();
 
     // Subscribe to the result. An appropriate callback will be executed instantly
@@ -49,6 +51,10 @@ public:
     // Invalidates the Future.
     void subscribe(ValueCallback<PhysicalType<T> > on_value, ErrorCallback on_error = nullptr);
     void subscribe(details::SubscriptionPtr<PhysicalType<T> > subscription);
+
+    // Rejects the result.
+    // Invalidates the Future.
+    void reject();
 
 private:
     std::shared_ptr<StateType> state_;
@@ -131,4 +137,14 @@ void Future<T>::subscribe(details::SubscriptionPtr<PhysicalType<T> > subscriptio
         // Scenario 2: state has not yet been produced and the callback will be executed by producer
         state->subscribed_ = true;
     }
+}
+
+template <class T>
+void Future<T>::reject() {
+    auto state = std::move(state_);
+    if (!state) {
+        throw std::runtime_error("Trying to reject to spoiled state");
+    }
+    std::unique_lock guard(state->mtx_);
+    state->rejected_ = true;
 }

@@ -17,6 +17,7 @@ public:
               Promise<Ret>&& promise);
 
     void run() override;
+    bool cancelled() override;
 
 private:
     FunctionType<Ret, void> func_;
@@ -51,6 +52,13 @@ void AsyncTask<Ret>::run()
     } catch (...) {
         promise_.setError(std::current_exception());
     }
+}
+
+
+template <class Ret>
+bool AsyncTask<Ret>::cancelled()
+{
+    return promise_.isRejected();
 }
 
 

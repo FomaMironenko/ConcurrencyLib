@@ -2,7 +2,8 @@
 #include "tp/thread_pool.hpp"
 
 
-void runWorkerLoop(ThreadPool *pool) {
+void runWorkerLoop(ThreadPool *pool)
+{
     for (;;) {
         ThreadPool::Task task = nullptr;
         {
@@ -20,11 +21,14 @@ void runWorkerLoop(ThreadPool *pool) {
             LOG_ERR << "Empty task was returned from task queue";
             continue;
         }
-        task->run();
+        if (!task->cancelled()) {
+            task->run();
+        }
     }
 }
 
-void ThreadPool::start(int num_threads) {
+void ThreadPool::start(int num_threads)
+{
     if (!workers_.empty() || stopped_) {
         LOG_ERR << "Attempting to start thread an already running thread pool";
         throw std::runtime_error("ThreadPool::start twice");
@@ -35,7 +39,8 @@ void ThreadPool::start(int num_threads) {
     }
 }
 
-void ThreadPool::stop() {
+void ThreadPool::stop()
+{
     {
         std::unique_lock guard(mtx_);
         stopped_ = true;
@@ -48,7 +53,8 @@ void ThreadPool::stop() {
     workers_.clear();
 }
 
-void ThreadPool::submit(ThreadPool::Task task) {
+void ThreadPool::submit(ThreadPool::Task task)
+{
     std::unique_lock guard(mtx_);
     if (!stopped_) {
         tasks_.push(std::move(task));

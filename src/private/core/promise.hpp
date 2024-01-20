@@ -30,6 +30,8 @@ public:
     void setValue(PhysicalType<T> value);
     void setError(std::exception_ptr err);
 
+    bool isRejected();
+
 private:
     std::shared_ptr<StateType> state_;
 };
@@ -71,4 +73,13 @@ void Promise<T>::setError(std::exception_ptr err)
         state->produced_ = true;
         state->cv_.notify_one();  // there are no more than one waiters
     }
+}
+
+template <class T>
+bool Promise<T>::isRejected() {
+    if (!state_) {
+        throw std::runtime_error("Trying to check for rejected after producing");
+    }
+    std::lock_guard guard(state_->mtx_);
+    return state_->rejected_;
 }

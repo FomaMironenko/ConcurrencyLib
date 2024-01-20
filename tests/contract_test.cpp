@@ -49,6 +49,27 @@ DEFINE_TEST(subscription2) {
 }
 
 
+DEFINE_TEST(rejection) {
+    auto [promise, future] = contract<int>();
+    ASSERT(!promise.isRejected());
+    future.reject();
+    ASSERT(promise.isRejected());
+    try {
+        // it is ok to set value event if promise is rejected
+        promise.setValue(42);
+    } catch (...) {
+        FAIL();
+    }
+    try {
+        // cannot get value on rejected future
+        future.get();
+        FAIL();
+    } catch (...) {
+        // NOP
+    }
+}
+
+
 DEFINE_TEST(futures_are_oneshot) {
     // Future::get consumes the state
     auto [pro1, fut1] = contract<int>();
@@ -238,6 +259,7 @@ int main() {
     RUN_TEST(get_blocks, "Get blocks");
     RUN_TEST(subscription1, "Subscribe before set");
     RUN_TEST(subscription2, "Subscribe after set");
+    RUN_TEST(rejection, "Future can be rejected");
     RUN_TEST(futures_are_oneshot, "Futures are oneshot");
     RUN_TEST(wait_does_not_consume, "Wait does not invalidate the Future");
     RUN_TEST(moveonly_value, "Moveonly value");

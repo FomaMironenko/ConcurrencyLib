@@ -48,13 +48,15 @@ private:
     std::mutex mtx_;
     std::condition_variable cv_;
 
-    std::optional<T> value_ = std::nullopt;
-    std::exception_ptr error_ = nullptr;
-    SubscriptionPtr<T> subscription_ = 0;
+    std::optional<T> value_ { std::nullopt };
+    std::exception_ptr error_ { nullptr };
+    SubscriptionPtr<T> subscription_ { nullptr };
 
-    bool produced_ = false;
-    bool subscribed_ = false;
+    bool produced_ { false };
+    bool subscribed_ { false };
+    bool rejected_ { false };
 
+private:
     void resolveSubscription(ResolvedBy by);
 };
 
