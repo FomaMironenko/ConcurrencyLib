@@ -1,6 +1,8 @@
+#pragma once
+
 #include <memory>
 
-#include "contract.hpp"
+#include "../core/promise.hpp"
 #include "task.hpp"
 
 

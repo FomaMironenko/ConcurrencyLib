@@ -4,6 +4,8 @@
 #include <functional>
 #include <type_traits>
 
+#include "../../private/core/contract.hpp"
+
 #include "async/result.hpp"
 #include "tp/thread_pool.hpp"
 

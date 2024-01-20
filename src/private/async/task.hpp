@@ -5,7 +5,7 @@
 #include "../type_traits.hpp"
 
 #include "tp/thread_pool_task_base.hpp"
-#include "contract.hpp"
+#include "../core/promise.hpp"
 
 
 namespace details {

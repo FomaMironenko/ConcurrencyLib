@@ -6,7 +6,8 @@
 #include <optional>
 #include <exception>
 
-#include "../../private/shared_state.hpp"  // for Result
+#include "../core/contract.hpp"
+#include "../core/shared_state.hpp"
 
 #include "async/result.hpp"
 

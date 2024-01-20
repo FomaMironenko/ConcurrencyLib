@@ -6,13 +6,14 @@
 #include <memory>
 
 #include "../private/type_traits.hpp"
+#include "../private/core/contract.hpp"
+
 #include "../private/subscription/pipe_sub.hpp"
 #include "../private/subscription/forward_sub.hpp"
 #include "../private/subscription/catch_sub.hpp"
 #include "../private/subscription/then_sub.hpp"
 #include "../private/subscription/to_std_sub.hpp"
 
-#include "contract.hpp"
 #include "tp/thread_pool.hpp"
 
 

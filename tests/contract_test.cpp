@@ -8,7 +8,7 @@
 #include "test_utils/timer.hpp"
 #include "test_utils/tester.hpp"
 
-#include "contract.hpp"
+#include "async/result.hpp"
 
 using namespace std::chrono_literals;
 

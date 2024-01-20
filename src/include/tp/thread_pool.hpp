@@ -9,7 +9,6 @@
 #include <mutex>
 
 #include "tp/thread_pool_task_base.hpp"
-#include "contract.hpp"
 
 
 class ThreadPool {

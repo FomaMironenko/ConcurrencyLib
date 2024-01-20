@@ -1,14 +1,14 @@
 #pragma once
 
+#include <exception>
 #include <cassert>
 #include <memory>
-#include <utility>
-#include <stdexcept>
-#include <functional>
 
-#include "../private/shared_state.hpp"
-#include "../private/type_traits.hpp"
-#include "../private/subscription/simple_sub.hpp"
+#include "../type_traits.hpp"
+#include "shared_state.hpp"
+
+#include "../subscription/base_sub.hpp"
+#include "../subscription/simple_sub.hpp"
 
 
 // Forward declare
@@ -16,32 +16,10 @@ template <class T> struct Contract;
 
 
 template <class T>
-class Promise {
-
-using StateType = details::SharedState<PhysicalType<T> >;
-template <class U> friend Contract<U> contract();
-
-private:
-    Promise(std::shared_ptr<StateType> state) : state_(std::move(state)) {    }
-
-public:
-    Promise(const Promise&) = delete;
-    Promise(Promise&&) = default;
-    Promise& operator=(const Promise&) = delete;
-    Promise& operator=(Promise&&) = delete;
-
-    void setValue(PhysicalType<T> value);
-    void setError(std::exception_ptr err);
-
-private:
-    std::shared_ptr<StateType> state_;
-};
-
-
-template <class T>
 class Future {
 
 using StateType = details::SharedState<PhysicalType<T> >;
+
 template <class U> friend Contract<U> contract();
 
 private:
@@ -75,68 +53,6 @@ public:
 private:
     std::shared_ptr<StateType> state_;
 };
-
-
-// ================================================== //
-// ==================== CONTRACT ==================== //
-// ================================================== //
-
-template <class T>
-struct Contract {
-    Promise<T> producer;
-    Future<T> consumer;
-};
-
-template <class T>
-Contract<T> contract()
-{
-    auto state = std::make_shared<details::SharedState<PhysicalType<T> > >();
-    return {Promise<T>{state}, Future<T>{state}};
-}
-
-
-
-// ======================================================== //
-// ==================== IMPLEMENTATION ==================== //
-// ======================================================== //
-
-template <class T>
-void Promise<T>::setValue(PhysicalType<T> value)
-{
-    auto state = std::move(state_);
-    if (!state) {
-        throw std::runtime_error("Trying to set value in a produced state");
-    }
-    // Guard will be destructed before state. Thus no use after free is available.
-    std::lock_guard guard(state->mtx_);
-    assert(!state->produced_);
-    state->value_ = std::move(value);
-    if (state->subscribed_) {
-        state->resolveSubscription(details::ResolvedBy::kProducer);
-    } else {
-        state->produced_ = true;
-        state->cv_.notify_one();  // there are no more than one waiters
-    }
-}
-
-template <class T>
-void Promise<T>::setError(std::exception_ptr err)
-{
-    auto state = std::move(state_);
-    if (!state) {
-        throw std::runtime_error("Trying to set error in a produced state");
-    }
-    // Guard will be destructed before state. Thus no use after free is available.
-    std::lock_guard guard(state->mtx_);
-    assert(!state->produced_);
-    state->error_ = std::move(err);
-    if (state->subscribed_) {
-        state->resolveSubscription(details::ResolvedBy::kProducer);
-    } else {
-        state->produced_ = true;
-        state->cv_.notify_one();  // there are no more than one waiters
-    }
-}
 
 
 template <class T>

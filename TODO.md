@@ -15,8 +15,7 @@
 - [ ] Enable moveonly function arguments in call_async
 - [x] Enable void TaskGroup
 - [ ] Don't reallocate memory for ForwardSubscription in FlattenSubscription::resolveValue. Possibly just exchange shared state.
-- [ ] Move FlattenSubscription into separate file
-- [ ] Move all subscription classes to details
+- [x] Move all subscription classes to details
 - [ ] Fix issue with two pools destruction in `in_does_transfer` test
 - [x] Implement TaskGroup::first
 - [ ] Enable thread pool task cancellation and add detach and reject methods to AsyncResult
