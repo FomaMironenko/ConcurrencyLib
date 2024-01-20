@@ -11,13 +11,10 @@
 template <class T>
 class TaskGroup {
 
-template <class U> friend class JoinSubscription;
+template <class U> friend class details::JoinSubscription;
 
 public:
-    TaskGroup() {
-        auto [promise, future] = contract<GroupAllType<T> >();
-        state_ = std::make_shared<details::GroupState<T> >();
-    }
+    TaskGroup();
 
     void join(AsyncResult<T> result);
 
@@ -29,22 +26,29 @@ private:
 };
 
 
-// ============================================== //
-// ==================== JOIN ==================== //
-// ============================================== //
+// ==================== CONSTRUCTOR ==================== //
 
 template <class T>
-void TaskGroup<T>::join(AsyncResult<T> res) {
-    res.fut_.subscribe(std::make_unique<JoinSubscription<T> >(state_));
+TaskGroup<T>::TaskGroup()
+{
+    state_ = std::make_shared<details::GroupState<T> >();
 }
 
 
-// =============================================== //
-// ==================== MERGE ==================== //
-// =============================================== //
+// ==================== JOIN ==================== //
 
 template <class T>
-AsyncResult<GroupAllType<T> > TaskGroup<T>::all() {
+void TaskGroup<T>::join(AsyncResult<T> res)
+{
+    res.fut_.subscribe(std::make_unique<details::JoinSubscription<T> >(state_));
+}
+
+
+// ==================== MERGE ==================== //
+
+template <class T>
+AsyncResult<GroupAllType<T> > TaskGroup<T>::all()
+{
     if (!state_) {
         throw std::runtime_error("Trying to merge all TaskGroup twice");
     }
@@ -55,7 +59,8 @@ AsyncResult<GroupAllType<T> > TaskGroup<T>::all() {
 }
 
 template <class T>
-AsyncResult<GroupFirstType<T> > TaskGroup<T>::first() {
+AsyncResult<GroupFirstType<T> > TaskGroup<T>::first()
+{
     if (!state_) {
         throw std::runtime_error("Trying to merge first TaskGroup twice");
     }

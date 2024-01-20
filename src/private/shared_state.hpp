@@ -18,7 +18,6 @@ template <class T> class Future;
 
 namespace details {
 
-
 // ================================================ //
 // ==================== RESULT ==================== //
 // ================================================ //
@@ -60,7 +59,8 @@ private:
 };
 
 template <class T>
-void SharedState<T>::resolveSubscription(ResolvedBy by) {
+void SharedState<T>::resolveSubscription(ResolvedBy by)
+{
     if (error_) {
         subscription_->resolveError(error_, by);
     } else {

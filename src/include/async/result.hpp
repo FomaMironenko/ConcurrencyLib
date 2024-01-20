@@ -5,9 +5,7 @@
 #include <future>
 #include <memory>
 
-#include "../private/async/task.hpp"
 #include "../private/type_traits.hpp"
-
 #include "../private/subscription/pipe_sub.hpp"
 #include "../private/subscription/forward_sub.hpp"
 #include "../private/subscription/catch_sub.hpp"
@@ -18,13 +16,17 @@
 #include "tp/thread_pool.hpp"
 
 
+// Fwd declare
+namespace details { template <class T> class FlattenSubscription; }
+
+
 template <class T>
 class AsyncResult {
 
 friend class ThreadPool;
 template <class U> friend class AsyncResult;
 template <class U> friend class TaskGroup;
-template <class U> friend class FlattenSubscription;
+template <class U> friend class details::FlattenSubscription;
 template <class Ret, class Fun, class ...Args>
 friend inline AsyncResult<Ret> call_async(ThreadPool& pool, Fun&& fun, Args &&...args);
 
@@ -61,10 +63,11 @@ public:
 
     // Create a ready-to-use AsyncResult filled with value
     template <class U = T>
-    static std::enable_if_t< std::is_same_v<U, void>, AsyncResult<U>> instant();
+    static std::enable_if_t< std::is_same_v<U, void>, AsyncResult<U> > instant();
 
+    // Create a ready-to-use AsyncResult<void>
     template <class U = T>
-    static std::enable_if_t<!std::is_same_v<U, void>, AsyncResult<U>> instant(U value);
+    static std::enable_if_t<!std::is_same_v<U, void>, AsyncResult<U> > instant(U value);
 
     // Create a ready-to-use AsyncResult filled with error
     static AsyncResult<T> instantFail(std::exception_ptr error);
@@ -94,12 +97,14 @@ private:
 // ==================================================== //
 
 template <class T>
-void AsyncResult<T>::wait() {
+void AsyncResult<T>::wait()
+{
     fut_.wait();
 }
 
 template <class T>
-T AsyncResult<T>::get() {
+T AsyncResult<T>::get()
+{
     if constexpr (std::is_same_v<T, void>) {
         fut_.get();
     } else {
@@ -113,10 +118,13 @@ T AsyncResult<T>::get() {
 // ================================================ //
 
 template <class T>
-std::future<T> AsyncResult<T>::to_std() {
+std::future<T> AsyncResult<T>::to_std()
+{
     auto std_promise = std::promise<T>();
     auto std_future = std_promise.get_future();
-    fut_.subscribe(std::make_unique<ToStdSubscription<T> >(std::move(std_promise)));
+    fut_.subscribe(std::make_unique<details::ToStdSubscription<T> >(
+        std::move(std_promise)
+    ));
     return std_future;
 }
 
@@ -127,21 +135,24 @@ std::future<T> AsyncResult<T>::to_std() {
 
 template <class T>
 template <class U>
-std::enable_if_t<std::is_same_v<U, void>, AsyncResult<U>> AsyncResult<T>::instant() {
+std::enable_if_t<std::is_same_v<U, void>, AsyncResult<U> > AsyncResult<T>::instant()
+{
     static_assert(std::is_same_v<T, U>, "Cannot call instant with non-default template argument");
     return AsyncResult<void>{nullptr, Future<void>::instantValue(Void{})};
 }
 
 template <class T>
 template <class U>
-std::enable_if_t<!std::is_same_v<U, void>, AsyncResult<U>> AsyncResult<T>::instant(U value) {
+std::enable_if_t<!std::is_same_v<U, void>, AsyncResult<U> > AsyncResult<T>::instant(U value)
+{
     static_assert(std::is_same_v<T, U>, "Cannot call instant with non-default template argument");
     return AsyncResult<U>{nullptr, Future<U>::instantValue(std::move(value))};
 }
 
 
 template <class T>
-AsyncResult<T> AsyncResult<T>::instantFail(std::exception_ptr error) {
+AsyncResult<T> AsyncResult<T>::instantFail(std::exception_ptr error)
+{
     return AsyncResult<T>{nullptr, Future<T>::instantError(std::move(error))};
 }
 
@@ -151,7 +162,8 @@ AsyncResult<T> AsyncResult<T>::instantFail(std::exception_ptr error) {
 // ============================================ //
 
 template <class T>
-AsyncResult<T> AsyncResult<T>::in(ThreadPool& pool) {
+AsyncResult<T> AsyncResult<T>::in(ThreadPool& pool)
+{
     return AsyncResult<T>{&pool, std::move(fut_)};
 }
 
@@ -162,10 +174,13 @@ AsyncResult<T> AsyncResult<T>::in(ThreadPool& pool) {
 
 template <class T>
 template <class Err>
-AsyncResult<T> AsyncResult<T>::catch_err(ErrorHandler<T, Err> handler) {
+AsyncResult<T> AsyncResult<T>::catch_err(ErrorHandler<T, Err> handler)
+{
     auto [promise, future] = contract<T>();
-    fut_.subscribe(std::make_unique<CatchSubscription<T, Err> >(
-        std::move(handler), std::move(promise)));
+    fut_.subscribe(std::make_unique<details::CatchSubscription<T, Err> >(
+        std::move(handler),
+        std::move(promise)
+    ));
     return AsyncResult<T>{parent_pool_, std::move(future)};
 }
 
@@ -176,10 +191,15 @@ AsyncResult<T> AsyncResult<T>::catch_err(ErrorHandler<T, Err> handler) {
 
 template <class T>
 template <class Ret>
-AsyncResult<Ret> AsyncResult<T>::then(FunctionType<Ret, T> func, ThenPolicy policy) {
+AsyncResult<Ret> AsyncResult<T>::then(FunctionType<Ret, T> func, ThenPolicy policy)
+{
     auto [promise, future] = contract<Ret>();
-    fut_.subscribe(std::make_unique<ThenSubscription<Ret, T> >(
-        std::move(func), std::move(promise), parent_pool_, policy));
+    fut_.subscribe(std::make_unique<details::ThenSubscription<Ret, T> >(
+        std::move(func),
+        std::move(promise),
+        parent_pool_,
+        policy
+    ));
     return AsyncResult<Ret>{parent_pool_, std::move(future)};
 }
 
@@ -188,6 +208,9 @@ AsyncResult<Ret> AsyncResult<T>::then(FunctionType<Ret, T> func, ThenPolicy poli
 // ==================== FLATTEN ==================== //
 // ================================================= //
 
+// No way to move it to a separate file since this would cause cyclic dependencies
+namespace details {
+
 template <class Ret>
 class FlattenSubscription : public PipeSubscription<Ret, AsyncResult<Ret>> {
 public:
@@ -195,23 +218,34 @@ public:
         : PipeSubscription<Ret, AsyncResult<Ret>>(std::move(promise))
     {   }
 
-    void resolveValue(AsyncResult<Ret> async_val, ResolvedBy) override {
-        async_val.fut_.subscribe(
-            std::make_unique<ForwardSubscription<Ret> >(std::move(promise_))
-        );
-    }
+    void resolveValue(AsyncResult<Ret> async_val, ResolvedBy) override;
 
 private:
     using PipeSubscription<Ret, AsyncResult<Ret> >::promise_;
 };
 
+
+template <class Ret>
+void FlattenSubscription<Ret>::resolveValue(AsyncResult<Ret> async_val, ResolvedBy)
+{
+    async_val.fut_.subscribe(std::make_unique<ForwardSubscription<Ret> >(
+        std::move(promise_)
+    ));
+}
+
+}  // namespace details
+
+
 template <class T>
 template <class U>
-std::enable_if_t<is_async_result<U>::value, T> AsyncResult<T>::flatten() {
+std::enable_if_t<is_async_result<U>::value, T> AsyncResult<T>::flatten()
+{
     static_assert(std::is_same_v<T, U>, "Cannot call flatten with non-default template argument");
     using Ret = typename async_type<T>::type;
     // Utilize duck typing
     auto [promise, future] = contract<Ret>();
-    fut_.subscribe( std::make_unique<FlattenSubscription<Ret> >(std::move(promise)) );
+    fut_.subscribe( std::make_unique<details::FlattenSubscription<Ret> >(
+        std::move(promise)
+    ));
     return AsyncResult<Ret>{parent_pool_, std::move(future)};
 }

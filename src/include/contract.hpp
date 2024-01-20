@@ -70,7 +70,7 @@ public:
     // thread when calling setValue / setError on Promise object otherwise.
     // Invalidates the Future.
     void subscribe(ValueCallback<PhysicalType<T> > on_value, ErrorCallback on_error = nullptr);
-    void subscribe(SubscriptionPtr<PhysicalType<T> > subscription);
+    void subscribe(details::SubscriptionPtr<PhysicalType<T> > subscription);
 
 private:
     std::shared_ptr<StateType> state_;
@@ -88,7 +88,8 @@ struct Contract {
 };
 
 template <class T>
-Contract<T> contract() {
+Contract<T> contract()
+{
     auto state = std::make_shared<details::SharedState<PhysicalType<T> > >();
     return {Promise<T>{state}, Future<T>{state}};
 }
@@ -100,7 +101,8 @@ Contract<T> contract() {
 // ======================================================== //
 
 template <class T>
-void Promise<T>::setValue(PhysicalType<T> value) {
+void Promise<T>::setValue(PhysicalType<T> value)
+{
     auto state = std::move(state_);
     if (!state) {
         throw std::runtime_error("Trying to set value in a produced state");
@@ -110,7 +112,7 @@ void Promise<T>::setValue(PhysicalType<T> value) {
     assert(!state->produced_);
     state->value_ = std::move(value);
     if (state->subscribed_) {
-        state->resolveSubscription(ResolvedBy::kProducer);
+        state->resolveSubscription(details::ResolvedBy::kProducer);
     } else {
         state->produced_ = true;
         state->cv_.notify_one();  // there are no more than one waiters
@@ -118,7 +120,8 @@ void Promise<T>::setValue(PhysicalType<T> value) {
 }
 
 template <class T>
-void Promise<T>::setError(std::exception_ptr err) {
+void Promise<T>::setError(std::exception_ptr err)
+{
     auto state = std::move(state_);
     if (!state) {
         throw std::runtime_error("Trying to set error in a produced state");
@@ -128,7 +131,7 @@ void Promise<T>::setError(std::exception_ptr err) {
     assert(!state->produced_);
     state->error_ = std::move(err);
     if (state->subscribed_) {
-        state->resolveSubscription(ResolvedBy::kProducer);
+        state->resolveSubscription(details::ResolvedBy::kProducer);
     } else {
         state->produced_ = true;
         state->cv_.notify_one();  // there are no more than one waiters
@@ -137,7 +140,8 @@ void Promise<T>::setError(std::exception_ptr err) {
 
 
 template <class T>
-Future<T> Future<T>::instantValue(PhysicalType<T> value) {
+Future<T> Future<T>::instantValue(PhysicalType<T> value)
+{
     auto state = std::make_shared<StateType>();
     state->value_ = std::move(value);
     state->produced_ = true;
@@ -145,7 +149,8 @@ Future<T> Future<T>::instantValue(PhysicalType<T> value) {
 }
 
 template <class T>
-Future<T> Future<T>::instantError(std::exception_ptr error) {
+Future<T> Future<T>::instantError(std::exception_ptr error)
+{
     auto state = std::make_shared<StateType>();
     state->error_ = std::move(error);
     state->produced_ = true;
@@ -153,7 +158,8 @@ Future<T> Future<T>::instantError(std::exception_ptr error) {
 }
 
 template <class T>
-PhysicalType<T> Future<T>::get() {
+PhysicalType<T> Future<T>::get()
+{
     auto state = std::move(state_);
     if (!state) {
         throw std::runtime_error("Trying to get a spoiled state");
@@ -171,7 +177,8 @@ PhysicalType<T> Future<T>::get() {
 }
 
 template <class T>
-void Future<T>::wait() {
+void Future<T>::wait()
+{
     if (!state_) {
         throw std::runtime_error("Trying to wait for spoiled state");
     }
@@ -182,12 +189,17 @@ void Future<T>::wait() {
 }
 
 template <class T>
-void Future<T>::subscribe(ValueCallback<PhysicalType<T>> on_value, ErrorCallback on_error) {
-    subscribe(std::make_unique<SimpleSubscription<T>>(std::move(on_value), std::move(on_error)));
+void Future<T>::subscribe(ValueCallback<PhysicalType<T> > on_value, ErrorCallback on_error)
+{
+    subscribe(std::make_unique<details::SimpleSubscription<T> >(
+        std::move(on_value),
+        std::move(on_error)
+    ));
 }
 
 template <class T>
-void Future<T>::subscribe(SubscriptionPtr<PhysicalType<T>> subscription) {
+void Future<T>::subscribe(details::SubscriptionPtr<PhysicalType<T> > subscription)
+{
     auto state = std::move(state_);
     if (!state) {
         throw std::runtime_error("Trying to subscribe to spoiled state");
@@ -198,7 +210,7 @@ void Future<T>::subscribe(SubscriptionPtr<PhysicalType<T>> subscription) {
     if (state->produced_) {
         // Scenario 1: state has already been produced and the callback will be executed in current thread
         // this is the only owning thread, so guard causes no contention
-        state->resolveSubscription(ResolvedBy::kConsumer);
+        state->resolveSubscription(details::ResolvedBy::kConsumer);
     } else {
         // Scenario 2: state has not yet been produced and the callback will be executed by producer
         state->subscribed_ = true;

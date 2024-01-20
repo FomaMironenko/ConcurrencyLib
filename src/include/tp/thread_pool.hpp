@@ -13,6 +13,10 @@
 
 
 class ThreadPool {
+
+friend void runWorkerLoop(ThreadPool*);
+template <class U> friend class AsyncResult;
+
 public:
     using Task = std::unique_ptr<ITaskBase>;
 
@@ -31,8 +35,4 @@ private:
     std::condition_variable queue_cv_;
     std::queue<Task> tasks_;
     bool stopped_;
-
-friend void runWorkerLoop(ThreadPool*);
-template <class T>
-friend class AsyncResult;
 };

@@ -71,7 +71,8 @@ private:
 // ==================== PRODUCERS ==================== //
 
 template <class T>
-void GroupState<T>::produceAll() {
+void GroupState<T>::produceAll()
+{
     assert(promise_all_.has_value());
     // Check for errors
     Result<T>* fst_err_result = first_error_.load(std::memory_order_relaxed);
@@ -94,7 +95,8 @@ void GroupState<T>::produceAll() {
 }
 
 template <>
-void GroupState<void>::produceAll() {
+void GroupState<void>::produceAll()
+{
     assert(promise_all_.has_value());
     Result<void>* fst_err_result = first_error_.load(std::memory_order_relaxed);
     if (fst_err_result) {
@@ -105,7 +107,8 @@ void GroupState<void>::produceAll() {
 }
 
 template <class T>
-void GroupState<T>::produceFirst() {
+void GroupState<T>::produceFirst()
+{
     assert(promise_first_.has_value());
     // Try to get first value
     Result<T>* first_val_result = first_value_.load(std::memory_order_relaxed);
@@ -128,7 +131,8 @@ void GroupState<T>::produceFirst() {
 // ==================== REGISTRTORS ==================== //
 
 template <class T>
-void GroupState<T>::registerValue(Result<T>* result) {
+void GroupState<T>::registerValue(Result<T>* result)
+{
     if (first_value_.load(std::memory_order_relaxed) == nullptr) {
         details::Result<T>* expected = nullptr;
         first_value_.compare_exchange_strong(expected, result, std::memory_order_acq_rel);
@@ -137,7 +141,8 @@ void GroupState<T>::registerValue(Result<T>* result) {
 }
 
 template <class T>
-void GroupState<T>::registerError(Result<T>* result) {
+void GroupState<T>::registerError(Result<T>* result)
+{
     if (first_error_.load(std::memory_order_relaxed) == nullptr) {
         details::Result<T>* expected = nullptr;
         first_error_.compare_exchange_strong(expected, result, std::memory_order_acq_rel);
@@ -150,7 +155,8 @@ void GroupState<T>::registerError(Result<T>* result) {
 // ==================== SUBSCRIPTION ==================== //
 
 template <class T>
-Future<GroupAllType<T> > GroupState<T>::subscribeToAll() {
+Future<GroupAllType<T> > GroupState<T>::subscribeToAll()
+{
     assert(group_type_.load(std::memory_order_relaxed) == kPending);
     auto [promise, future] = contract<GroupAllType<T> >();
     promise_all_.emplace(std::move(promise));
@@ -159,7 +165,8 @@ Future<GroupAllType<T> > GroupState<T>::subscribeToAll() {
 }
 
 template <class T>
-Future<GroupFirstType<T> > GroupState<T>::subscribeToFirst() {
+Future<GroupFirstType<T> > GroupState<T>::subscribeToFirst()
+{
     assert(group_type_.load(std::memory_order_relaxed) == kPending);
     auto [promise, future] = contract<GroupFirstType<T> >();
     promise_first_.emplace(std::move(promise));
@@ -171,14 +178,16 @@ Future<GroupFirstType<T> > GroupState<T>::subscribeToFirst() {
 // ==================== ATTACH / DETACH ==================== //
 
 template <class T>
-Result<T>* GroupState<T>::attach() {
+Result<T>* GroupState<T>::attach()
+{
     results_.emplace_back();
     num_pending_.fetch_add(1, std::memory_order_acq_rel);
     return &(results_.back());
 }
 
 template <class T>
-void GroupState<T>::detach() {
+void GroupState<T>::detach()
+{
     auto num_pending = num_pending_.load(std::memory_order_acquire);
     auto group_type = group_type_.load(std::memory_order_acquire);
     // subscribeToAll already executed
